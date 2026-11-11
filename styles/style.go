@@ -8,8 +8,12 @@ import (
 
 // Style is the parsed value of a style attribute.
 type Style struct {
-	// Fill reports whether the element fills the parent cross axis.
-	Fill bool
+	// WFull fills the parent width.
+	WFull bool
+	// HFull fills the parent height.
+	HFull bool
+	// FixedH is an exact height in pixels, or 0 for none.
+	FixedH float32
 	// Pad is the inner spacing per side.
 	Pad Edges
 	// Margin is the outer spacing per side.
@@ -28,7 +32,12 @@ func ParseStyle(s string) (Style, error) {
 	var st Style
 	var assigns []spacingAssign
 	for _, tok := range strings.Fields(s) {
-		if ok, _ := parseFillToken(&st, tok); ok {
+		if parseWidthToken(&st, tok) {
+			continue
+		}
+		if ok, err := parseHeightToken(&st, tok); err != nil {
+			return Style{}, err
+		} else if ok {
 			continue
 		}
 		if tier, apply, ok, err := parsePaddingAssign(&st.Pad, tok); err != nil {

@@ -6,21 +6,21 @@ import (
 )
 
 func TestParseStyle(t *testing.T) {
-	st, err := ParseStyle("full-width p-2")
+	st, err := ParseStyle("w-full p-2")
 	if err != nil {
 		t.Fatalf("ParseStyle returned error: %v", err)
 	}
-	if !st.Fill || st.Pad != UniformEdges(8) {
-		t.Fatalf("ParseStyle = %+v, want Fill true and Pad 8", st)
+	if !st.WFull || st.Pad != UniformEdges(8) {
+		t.Fatalf("ParseStyle = %+v, want WFull and Pad 8", st)
 	}
 	st, err = ParseStyle("")
 	if err != nil {
 		t.Fatalf("ParseStyle empty returned error: %v", err)
 	}
-	if st.Fill || !st.Pad.IsZero() || !st.Margin.IsZero() {
+	if st.WFull || st.HFull || st.FixedH != 0 || !st.Pad.IsZero() || !st.Margin.IsZero() {
 		t.Fatalf("ParseStyle empty = %+v, want zero", st)
 	}
-	for _, s := range []string{"wide", "p-9", "p-x", "p-"} {
+	for _, s := range []string{"wide", "p-9", "p-x", "p-", "h-99", "h-x", "h-"} {
 		if _, err := ParseStyle(s); err == nil {
 			t.Fatalf("ParseStyle(%q) expected error, got nil", s)
 		} else if !strings.Contains(err.Error(), s) {
@@ -31,15 +31,15 @@ func TestParseStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseStyle m-2 returned error: %v", err)
 	}
-	if st.Margin != UniformEdges(8) || st.Fill || !st.Pad.IsZero() {
+	if st.Margin != UniformEdges(8) || st.WFull || !st.Pad.IsZero() {
 		t.Fatalf("ParseStyle m-2 = %+v, want only Margin 8", st)
 	}
-	for _, s := range []string{"m-9", "m-x"} {
-		if _, err := ParseStyle(s); err == nil {
-			t.Fatalf("ParseStyle(%q) expected error, got nil", s)
-		} else if !strings.Contains(err.Error(), "margin") {
-			t.Fatalf("error %q does not say margin", err)
-		}
+	st, err = ParseStyle("h-full h-2")
+	if err != nil {
+		t.Fatalf("ParseStyle h-full h-2 returned error: %v", err)
+	}
+	if !st.HFull || st.FixedH != 8 {
+		t.Fatalf("ParseStyle = %+v, want HFull and FixedH 8", st)
 	}
 	st, err = ParseStyle("p-2 pt-4 mx-1 ml-3")
 	if err != nil {

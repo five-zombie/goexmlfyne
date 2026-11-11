@@ -1,12 +1,15 @@
 package goexml
 
 import (
+	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 )
@@ -152,9 +155,13 @@ func TestBuildSelectTable(t *testing.T) {
 	if picked != "yes" {
 		t.Fatal("changing select did not call OnPick")
 	}
-	tab, ok := box.Objects[1].(*widget.Table)
+	wrap, ok := box.Objects[1].(*fyne.Container)
 	if !ok {
-		t.Fatalf("second child is %T, want *widget.Table", box.Objects[1])
+		t.Fatalf("second child is %T, want table wrapper *fyne.Container", box.Objects[1])
+	}
+	tab, ok := wrap.Objects[0].(*widget.Table)
+	if !ok {
+		t.Fatalf("wrapped object is %T, want *widget.Table", wrap.Objects[0])
 	}
 	if rows, cols := tab.Length(); rows != 2 || cols != 2 {
 		t.Fatalf("table size = %dx%d, want 2x2", rows, cols)
@@ -185,9 +192,16 @@ func TestBuildTableSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
-	tab, ok := w.Content.(*widget.Table)
+	wrap, ok := w.Content.(*fyne.Container)
 	if !ok {
-		t.Fatalf("content is %T, want *widget.Table", w.Content)
+		t.Fatalf("content is %T, want table wrapper *fyne.Container", w.Content)
+	}
+	tab, ok := wrap.Objects[0].(*widget.Table)
+	if !ok {
+		t.Fatalf("wrapped object is %T, want *widget.Table", wrap.Objects[0])
+	}
+	if wrap.MinSize().Height <= tab.MinSize().Height {
+		t.Fatalf("wrapper height %v does not cover header plus rows (template %v)", wrap.MinSize().Height, tab.MinSize().Height)
 	}
 	if tab.OnSelected == nil {
 		t.Fatal("table has no OnSelected handler")
@@ -195,6 +209,39 @@ func TestBuildTableSelect(t *testing.T) {
 	tab.OnSelected(widget.TableCellID{Row: 0, Col: 1})
 	if !chosen {
 		t.Fatal("selecting a cell did not call OnRow")
+	}
+}
+
+func TestScrollWrapsTallContent(t *testing.T) {
+	data, err := os.ReadFile("examples/showcase.xml")
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	root, err := Decode(data)
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){
+		"OnCancel": func() {}, "OnSave": func() {}, "OnPick": func() {},
+		"OnRow": func() {}, "OnDemo": func() {},
+	})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	// Lay out once first: wrapped rows only reach their true height
+	// after layout, so the fresh minimum understates tall content.
+	w.Content.Resize(w.Size)
+	full := w.Content.MinSize()
+	if full.Height <= w.Size.Height {
+		t.Fatalf("content height %v fits window %v, test proves nothing", full.Height, w.Size.Height)
+	}
+	// The demo shows content through a scroll container; the scroll
+	// must report a small size even for huge content, otherwise Fyne
+	// clamps the window content. The driver-level clamp itself needs
+	// a display and is not reproducible here.
+	view := container.NewScroll(w.Content)
+	if got := view.MinSize(); got.Height >= full.Height || got.Height > w.Size.Height {
+		t.Fatalf("scroll size %v does not fit tall content %v in window %v", got, full, w.Size)
 	}
 }
 
@@ -234,7 +281,7 @@ func TestWindowFindSelectValue(t *testing.T) {
 
 func TestBuildStyle(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
-		`<vbox id="b"><label id="lbl" text="Hi" style="full-width p-2 pt-4"/></vbox></window></goexml>`
+		`<vbox id="b"><label id="lbl" text="Hi" style="w-full p-2 pt-4"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
@@ -307,6 +354,276 @@ func TestBuildMargin(t *testing.T) {
 	}
 }
 
+func TestBuildHBoxFullWidth(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<hbox id="b"><label id="a" text="A"/><label id="c" text="C" style="w-full"/></hbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(300, 60))
+	plain := box.Objects[0].Size().Width
+	full := box.Objects[1].Size().Width
+	if full <= plain || full < 200 {
+		t.Fatalf("w-full in hbox = %v, plain = %v; want full to take leftover width", full, plain)
+	}
+}
+
+func TestBuildGrid(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<vbox id="g" column="grid" min="1" max="5">` +
+		`<label id="a" text="A"/><label id="b" text="B"/><label id="c" text="C"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box, ok := w.Content.(*fyne.Container)
+	if !ok {
+		t.Fatalf("content is %T, want *fyne.Container", w.Content)
+	}
+	if len(box.Objects) != 3 {
+		t.Fatalf("content children = %d, want 3", len(box.Objects))
+	}
+	if w.Find("b") == nil {
+		t.Fatal("Find(b) did not find the grid child")
+	}
+	box.Layout.Layout(box.Objects, fyne.NewSize(400, 100))
+	y0 := box.Objects[0].Position().Y
+	for _, o := range box.Objects {
+		if o.Position().Y != y0 {
+			t.Fatalf("child Y = %v, want single row at %v", o.Position().Y, y0)
+		}
+	}
+}
+
+func closeEnough(a, b float32) bool {
+	d := a - b
+	return d < 0.01 && d > -0.01
+}
+
+func TestBuildAlignVariants(t *testing.T) {
+	for _, align := range []string{"start", "center", "end"} {
+		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+			`<vbox id="b" align="` + align + `" style="w-full">` +
+			`<label id="wide" text="A much longer label text"/>` +
+			`<label id="narrow" text="A"/></vbox></window></goexml>`
+		root, err := Decode([]byte(doc))
+		if err != nil {
+			t.Fatalf("Decode %s returned error: %v", align, err)
+		}
+		w, err := Build(root, map[string]func(){})
+		if err != nil {
+			t.Fatalf("Build %s returned error: %v", align, err)
+		}
+		box := w.Content.(*fyne.Container)
+		box.Layout.Layout(box.Objects, fyne.NewSize(400, 100))
+		narrow := box.Objects[1]
+		nx, nw := narrow.Position().X, narrow.Size().Width
+		switch align {
+		case "start":
+			if nx != 0 {
+				t.Fatalf("vbox start: narrow X = %v, want 0", nx)
+			}
+		case "center":
+			if nx <= 0 || !closeEnough(nx*2+nw, 400) {
+				t.Fatalf("vbox center: narrow not centered: X=%v W=%v", nx, nw)
+			}
+		case "end":
+			if nx <= 0 || !closeEnough(nx+nw, 400) {
+				t.Fatalf("vbox end: narrow not flush right: X=%v W=%v", nx, nw)
+			}
+		}
+	}
+	for _, align := range []string{"start", "center", "end"} {
+		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+			`<hbox id="b" align="` + align + `" style="w-full">` +
+			`<entry id="tall" text="x" style="h-full"/><label id="short" text="Hi"/></hbox></window></goexml>`
+		root, err := Decode([]byte(doc))
+		if err != nil {
+			t.Fatalf("Decode %s returned error: %v", align, err)
+		}
+		w, err := Build(root, map[string]func(){})
+		if err != nil {
+			t.Fatalf("Build %s returned error: %v", align, err)
+		}
+		box := w.Content.(*fyne.Container)
+		box.Layout.Layout(box.Objects, fyne.NewSize(400, 200))
+		tall, short := box.Objects[0], box.Objects[1]
+		if tall.Size().Height != 200 {
+			t.Fatalf("hbox %s: tall entry H = %v, want full 200", align, tall.Size().Height)
+		}
+		sy, sh := short.Position().Y, short.Size().Height
+		switch align {
+		case "start":
+			if sy != 0 {
+				t.Fatalf("hbox start: short Y = %v, want 0", sy)
+			}
+		case "center":
+			if sy <= 0 || !closeEnough(sy*2+sh, 200) {
+				t.Fatalf("hbox center: short not centered vertically: Y=%v H=%v", sy, sh)
+			}
+		case "end":
+			if sy <= 0 || !closeEnough(sy+sh, 200) {
+				t.Fatalf("hbox end: short not flush bottom: Y=%v H=%v", sy, sh)
+			}
+		}
+	}
+}
+
+func TestBuildJustify(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<hbox id="b" justify="space-between"><label id="a" text="A"/><label id="c" text="C"/></hbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(300, 60))
+	first, last := box.Objects[0], box.Objects[1]
+	if first.Position().X != 0 {
+		t.Fatalf("first child X = %v, want 0", first.Position().X)
+	}
+	if end := last.Position().X + last.Size().Width; end != 300 {
+		t.Fatalf("last child ends at %v, want 300", end)
+	}
+}
+
+func TestBuildRect(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<vbox id="b"><rect id="band" color="#2e2e2e" style="w-full h-2"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	r, ok := w.Find("band").(*canvas.Rectangle)
+	if !ok {
+		t.Fatalf("Find(band) is %T, want *canvas.Rectangle", w.Find("band"))
+	}
+	if got, want := r.FillColor, (color.NRGBA{R: 0x2e, G: 0x2e, B: 0x2e, A: 255}); got != want {
+		t.Fatalf("FillColor = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildTextElement(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		doc  string
+		text string
+		wrap fyne.TextWrap
+	}{
+		{"body defaults to wrap",
+			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t">Hello world</text></vbox></window></goexml>`,
+			"Hello world", fyne.TextWrapWord},
+		{"v attr",
+			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t" v="Hello attr" /></vbox></window></goexml>`,
+			"Hello attr", fyne.TextWrapWord},
+		{"break",
+			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t" wrap="break">Hi</text></vbox></window></goexml>`,
+			"Hi", fyne.TextWrapBreak},
+		{"off",
+			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t" wrap="off">Hi</text></vbox></window></goexml>`,
+			"Hi", fyne.TextWrapOff},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root, err := Decode([]byte(tc.doc))
+			if err != nil {
+				t.Fatalf("Decode returned error: %v", err)
+			}
+			w, err := Build(root, map[string]func(){})
+			if err != nil {
+				t.Fatalf("Build returned error: %v", err)
+			}
+			lbl, ok := w.Find("t").(*widget.Label)
+			if !ok {
+				t.Fatalf("Find(t) is %T, want *widget.Label", w.Find("t"))
+			}
+			if lbl.Text != tc.text {
+				t.Fatalf("text = %q, want %q", lbl.Text, tc.text)
+			}
+			if lbl.Wrapping != tc.wrap {
+				t.Fatalf("wrapping = %v, want %v", lbl.Wrapping, tc.wrap)
+			}
+		})
+	}
+}
+
+func TestBuildWrapGrows(t *testing.T) {
+	words := strings.Repeat("lorem ipsum dolor sit amet consectetur adipiscing elit ", 60)
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<vbox id="b" style="w-full"><text id="p">` + words + `</text></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(784, 10000))
+	h := box.Objects[0].Size().Height
+	single := widget.NewLabel("x").MinSize().Height
+	if h <= 10*single {
+		t.Fatalf("wrapped height = %v, want more than 10 lines (single=%v)", h, single)
+	}
+}
+
+func TestBuildTenThousandWords(t *testing.T) {
+	words := strings.Repeat("lorem ipsum dolor sit amet ", 2000)
+	if got := len(strings.Fields(words)); got != 10000 {
+		t.Fatalf("fixture has %d words, want 10000", got)
+	}
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<vbox id="b" style="w-full"><text id="big">` + words + `</text></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(784, 100000))
+	if h := box.Objects[0].Size().Height; h <= 2000 {
+		t.Fatalf("10000-word block height = %v, want > 2000", h)
+	}
+}
+
+func TestColumnWidths(t *testing.T) {
+	ws := columnWidths([]string{"Name", "Role"}, [][]string{{"Ann", "Designer"}, {"Bo", "Engineer"}})
+	if len(ws) != 2 {
+		t.Fatalf("got %d widths, want 2", len(ws))
+	}
+	if ws[1] <= ws[0] {
+		t.Fatalf("long column %v should exceed short column %v", ws[1], ws[0])
+	}
+	if ws[0] <= 0 || ws[1] <= 0 {
+		t.Fatalf("widths must be positive, got %v", ws)
+	}
+	plain := columnWidths([]string{"A"}, [][]string{{"B"}})
+	if plain[0] <= 16 {
+		t.Fatalf("single column width %v should include padding", plain[0])
+	}
+}
+
 func TestBuildExampleFiles(t *testing.T) {
 	files, err := filepath.Glob("examples/*.xml")
 	if err != nil {
@@ -318,6 +635,7 @@ func TestBuildExampleFiles(t *testing.T) {
 	handlers := map[string]func(){
 		"OnCancel": func() {}, "OnSave": func() {},
 		"OnPick": func() {}, "OnRow": func() {},
+		"OnDemo": func() {},
 	}
 	for _, f := range files {
 		data, err := os.ReadFile(f)

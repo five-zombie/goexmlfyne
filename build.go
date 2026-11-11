@@ -2,9 +2,12 @@ package goexml
 
 import (
 	"fmt"
+	"image/color"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
@@ -61,23 +64,21 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 	}
 	reg := map[string]fyne.CanvasObject{}
 	var objs []fyne.CanvasObject
+	var hints []childHint
 	for _, c := range w.Children {
 		o, err := buildObject(c, tap, reg)
 		if err != nil {
 			return nil, err
 		}
 		objs = append(objs, o)
+		hints = append(hints, hintOf(c))
 	}
 	var content fyne.CanvasObject
 	if len(objs) == 1 {
 		content = objs[0]
 	} else {
-		fill := make([]bool, len(w.Children))
-		for i, c := range w.Children {
-			fill[i] = styleFill(c)
-		}
 		content = container.New(
-			newBoxLayout(true, 0, 4, "start", make([]bool, len(objs)), fill), objs...,
+			newBoxLayout(true, 0, 4, "start", "start", hints), objs...,
 		)
 	}
 	return &Window{
@@ -106,6 +107,17 @@ func buildObject(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 	if !st.Margin.IsZero() {
 		o = styles.NewMargin(st.Margin, o)
 	}
+	if n.Type == "table" {
+		// Tables are wrapped in a sizing box; register the table itself
+		// so Find returns *widget.Table, like every other widget.
+		for {
+			c, ok := inner.(*fyne.Container)
+			if !ok || len(c.Objects) != 1 {
+				break
+			}
+			inner = c.Objects[0]
+		}
+	}
 	if id := n.Attr("id"); id != "" {
 		reg[id] = inner
 	}
@@ -116,22 +128,31 @@ func buildObject(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
 	switch n.Type {
 	case "vbox", "hbox":
+		vertical := n.Type == "vbox"
 		var objs []fyne.CanvasObject
-		var expand []bool
-		var fill []bool
+		var hints []childHint
 		for _, c := range n.Children {
 			o, err := buildObject(c, tap, reg)
 			if err != nil {
 				return nil, err
 			}
 			objs = append(objs, o)
-			expand = append(expand, c.Attr("expand") == "true")
-			fill = append(fill, styleFill(c))
+			hints = append(hints, hintOf(c))
 		}
-		box := container.New(
-			newBoxLayout(n.Type == "vbox", num(n.Attr("padding")), num(n.Attr("spacing")), alignOf(n), expand, fill),
-			objs...,
-		)
+		var box fyne.CanvasObject
+		if n.Type == "vbox" && n.Attr("column") == "grid" {
+			box = container.New(
+				newGridLayout(num(n.Attr("padding")), num(n.Attr("spacing")), gridMin(n), gridMax(n), hints),
+				objs...,
+			)
+		} else if n.Type == "vbox" && n.Attr("column") != "" {
+			return nil, fmt.Errorf("goexml: line %d: unknown column mode %q, want grid", n.Line, n.Attr("column"))
+		} else {
+			box = container.New(
+				newBoxLayout(vertical, num(n.Attr("padding")), num(n.Attr("spacing")), alignOf(n), justifyOf(n), hints),
+				objs...,
+			)
+		}
 		return applyState(box, n), nil
 	case "border":
 		var top, bottom, left, right, center fyne.CanvasObject
@@ -151,11 +172,11 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 			case 1:
 				o = objs[0]
 			default:
-				fill := make([]bool, len(r.Children))
-				for i, g := range r.Children {
-					fill[i] = styleFill(g)
+				var hints []childHint
+				for _, g := range r.Children {
+					hints = append(hints, hintOf(g))
 				}
-				o = container.New(newBoxLayout(true, 0, 4, "start", make([]bool, len(objs)), fill), objs...)
+				o = container.New(newBoxLayout(true, 0, 4, "start", "start", hints), objs...)
 			}
 			switch r.Type {
 			case "top":
@@ -177,6 +198,21 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		return applyState(container.NewBorder(top, bottom, left, right, centers...), n), nil
 	case "label":
 		return applyState(widget.NewLabel(n.Attr("text")), n), nil
+	case "text":
+		body := strings.TrimSpace(n.Attr("v"))
+		if body == "" {
+			body = n.Text
+		}
+		l := widget.NewLabel(body)
+		// A text block wraps by default; "off" keeps one line.
+		switch n.Attr("wrap") {
+		case "off":
+		case "break":
+			l.Wrapping = fyne.TextWrapBreak
+		default:
+			l.Wrapping = fyne.TextWrapWord
+		}
+		return applyState(l, n), nil
 	case "button":
 		name := n.Attr("onClick")
 		fn, ok := tap[name]
@@ -186,11 +222,16 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		return applyState(widget.NewButton(n.Attr("text"), fn), n), nil
 	case "entry":
 		e := widget.NewEntry()
-		if text := n.Attr("text"); text != "" {
-			e.SetText(text)
-		}
+		// Direct assignment: SetText measures text, which needs a
+		// running app. The renderer reads Text when shown.
+		e.Text = n.Attr("text")
 		e.PlaceHolder = n.Attr("placeholder")
 		return applyState(e, n), nil
+	case "rect":
+		// Decode guarantees a valid color; invalid input here can only
+		// come from hand-built trees, so fall back to opaque black.
+		r, g, b, _ := parseHexColor(n.Attr("color"), n.Line)
+		return applyState(canvas.NewRectangle(color.NRGBA{R: r, G: g, B: b, A: 255}), n), nil
 	case "select":
 		name := n.Attr("onChange")
 		fn, ok := tap[name]
@@ -207,19 +248,22 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		}
 		s := widget.NewSelect(options, func(string) { fn() })
 		if selected != "" {
-			s.SetSelected(selected)
+			// Direct assignment: SetSelected refreshes, which needs a
+			// running app, and it would also fire OnChanged during build.
+			// The renderer picks up Selected when the widget is shown.
+			s.Selected = selected
 		}
 		return applyState(s, n), nil
 	case "table":
 		var cols []string
 		for _, c := range n.Children[0].Children {
-			cols = append(cols, c.Attr("text"))
+			cols = append(cols, cellText(c))
 		}
 		var rows [][]string
 		for _, r := range n.Children[1:] {
 			var row []string
 			for _, c := range r.Children {
-				row = append(row, c.Attr("text"))
+				row = append(row, cellText(c))
 			}
 			rows = append(rows, row)
 		}
@@ -230,6 +274,10 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 				cell.(*widget.Label).SetText(rows[id.Row][id.Col])
 			},
 		)
+		widths := columnWidths(cols, rows)
+		for i, w := range widths {
+			t.SetColumnWidth(i, w)
+		}
 		t.ShowHeaderRow = true
 		t.CreateHeader = func() fyne.CanvasObject { return widget.NewLabel("") }
 		t.UpdateHeader = func(id widget.TableCellID, cell fyne.CanvasObject) {
@@ -242,7 +290,33 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 			}
 			t.OnSelected = func(widget.TableCellID) { fn() }
 		}
-		return applyState(t, n), nil
+		applyState(t, n)
+		var totalW float32
+		for _, w := range widths {
+			totalW += w
+		}
+		// The template MinSize only fits about one row; size the
+		// wrapper for the header plus every data row so real
+		// content is visible.
+		rowH := float32(0)
+		probe := func(s string) {
+			if h := widget.NewLabel(s).MinSize().Height; h > rowH {
+				rowH = h
+			}
+		}
+		for _, c := range cols {
+			probe(c)
+		}
+		for _, r := range rows {
+			for _, s := range r {
+				probe(s)
+			}
+		}
+		box := container.New(newTableLayout(fyne.NewSize(totalW, rowH*float32(len(rows)+1)+8)), t)
+		if !t.Visible() {
+			box.Hide()
+		}
+		return box, nil
 	default:
 		return nil, fmt.Errorf("goexml: line %d: cannot build <%s>", n.Line, n.Type)
 	}
@@ -255,9 +329,51 @@ func styleOf(n *Node) styles.Style {
 	return st
 }
 
-// styleFill reports whether the node fills the parent cross axis.
-func styleFill(n *Node) bool {
-	return styleOf(n).Fill
+// cellText returns a cell's text: the text attribute, or the inner
+// text when the attribute is absent. Validation guarantees exactly
+// one of the two is present.
+func cellText(n *Node) string {
+	if t := strings.TrimSpace(n.Attr("text")); t != "" {
+		return t
+	}
+	return n.Text
+}
+
+// columnWidths returns one width per column: the widest cell content
+// plus padding, so real text is never truncated to fit.
+func columnWidths(cols []string, rows [][]string) []float32 {
+	measure := func(s string) float32 { return widget.NewLabel(s).MinSize().Width }
+	widths := make([]float32, len(cols))
+	for i, c := range cols {
+		widths[i] = measure(c)
+	}
+	for _, r := range rows {
+		for i := range r {
+			if i < len(widths) {
+				if w := measure(r[i]); w > widths[i] {
+					widths[i] = w
+				}
+			}
+		}
+	}
+	for i := range widths {
+		widths[i] += 16
+	}
+	return widths
+}
+
+// hintOf maps a validated node to its layout hint.
+// expand="true" is shorthand for w-full plus h-full.
+func hintOf(n *Node) childHint {
+	st := styleOf(n)
+	expand := n.Attr("expand") == "true"
+	w := strings.TrimSpace(n.Attr("wrap"))
+	return childHint{
+		wFull:  st.WFull || expand,
+		hFull:  st.HFull || expand,
+		fixedH: st.FixedH,
+		wrap:   w == "word" || w == "break" || (n.Type == "text" && w != "off"),
+	}
 }
 
 // applyState enforces the visible and disabled attributes.
@@ -281,8 +397,33 @@ func alignOf(n *Node) string {
 	return "start"
 }
 
+// justifyOf returns the main-axis distribution, defaulting to start.
+func justifyOf(n *Node) string {
+	if j := n.Attr("justify"); j != "" {
+		return j
+	}
+	return "start"
+}
+
 // num parses a non-negative integer attribute, defaulting to zero.
 func num(s string) float32 {
 	i, _ := strconv.Atoi(s)
 	return float32(i)
+}
+
+// gridMin returns the minimum grid column count, defaulting to 1.
+// Decode is the strict gate; garbage falls back to the default here.
+func gridMin(n *Node) int {
+	if v, err := strconv.Atoi(n.Attr("min")); err == nil && v >= 1 {
+		return v
+	}
+	return 1
+}
+
+// gridMax returns the maximum grid column count, or 0 for no upper clamp.
+func gridMax(n *Node) int {
+	if v, err := strconv.Atoi(n.Attr("max")); err == nil && v >= 1 {
+		return v
+	}
+	return 0
 }

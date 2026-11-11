@@ -14,6 +14,10 @@ type Node struct {
 	Children []*Node
 	// Line is the 1-based source line of the start tag.
 	Line int
+	// Text is trimmed character content inside the element, or "".
+	// Only cell and text elements may carry it; every other element
+	// rejects non-empty Text during validation.
+	Text string
 }
 
 // Attr returns the value of the named attribute, or "" when absent.

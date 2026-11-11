@@ -52,6 +52,7 @@ func parseElement(d *xml.Decoder, data []byte, start xml.StartElement, off int64
 		}
 		n.Attrs[a.Name.Local] = a.Value
 	}
+	var body strings.Builder
 	for {
 		coff := d.InputOffset()
 		tok, err := d.Token()
@@ -69,11 +70,10 @@ func parseElement(d *xml.Decoder, data []byte, start xml.StartElement, off int64
 			if t.Name.Local != start.Name.Local {
 				return nil, fmt.Errorf("goexml: line %d: mismatched </%s>", lineAt(data, coff), t.Name.Local)
 			}
+			n.Text = strings.TrimSpace(body.String())
 			return n, nil
 		case xml.CharData:
-			if strings.TrimSpace(string(t)) != "" {
-				return nil, fmt.Errorf("goexml: line %d: text is not allowed inside <%s>", lineAt(data, coff), n.Type)
-			}
+			body.WriteString(string(t))
 		case xml.Comment:
 			continue
 		default:
@@ -139,6 +139,33 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 	}
 	switch n.Type {
 	case "vbox", "hbox":
+		if mode, ok := n.Attrs["column"]; ok && (n.Type != "vbox" || mode != "grid") {
+			return fmt.Errorf("goexml: line %d: unknown column mode %q, want grid on vbox", n.Line, mode)
+		}
+		min, max := 0, 0
+		if s, ok := n.Attrs["min"]; ok {
+			if n.Attr("column") != "grid" {
+				return fmt.Errorf("goexml: line %d: min needs column=\"grid\"", n.Line)
+			}
+			v, err := strconv.Atoi(s)
+			if err != nil || v < 1 {
+				return fmt.Errorf("goexml: line %d: min must be an integer >= 1, got %q", n.Line, s)
+			}
+			min = v
+		}
+		if s, ok := n.Attrs["max"]; ok {
+			if n.Attr("column") != "grid" {
+				return fmt.Errorf("goexml: line %d: max needs column=\"grid\"", n.Line)
+			}
+			v, err := strconv.Atoi(s)
+			if err != nil || v < 1 {
+				return fmt.Errorf("goexml: line %d: max must be an integer >= 1, got %q", n.Line, s)
+			}
+			max = v
+		}
+		if n.Attr("min") != "" && n.Attr("max") != "" && min > max {
+			return fmt.Errorf("goexml: line %d: min %d exceeds max %d", n.Line, min, max)
+		}
 		if len(n.Children) == 0 {
 			return fmt.Errorf("goexml: line %d: <%s> needs at least one child", n.Line, n.Type)
 		}
@@ -192,9 +219,27 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		if len(n.Children) != 0 {
 			return fmt.Errorf("goexml: line %d: <button> cannot have children", n.Line)
 		}
+	case "text":
+		if len(n.Children) != 0 {
+			return fmt.Errorf("goexml: line %d: <text> cannot have children", n.Line)
+		}
+		v := strings.TrimSpace(n.Attr("v"))
+		switch {
+		case v != "" && n.Text != "":
+			return fmt.Errorf("goexml: line %d: <text> takes v attribute or inner text, not both", n.Line)
+		case v == "" && n.Text == "":
+			return fmt.Errorf("goexml: line %d: <text> needs text: v attribute or inner text", n.Line)
+		}
 	case "entry":
 		if len(n.Children) != 0 {
 			return fmt.Errorf("goexml: line %d: <entry> cannot have children", n.Line)
+		}
+	case "rect":
+		if len(n.Children) != 0 {
+			return fmt.Errorf("goexml: line %d: <rect> cannot have children", n.Line)
+		}
+		if _, _, _, err := parseHexColor(n.Attr("color"), n.Line); err != nil {
+			return err
 		}
 	case "select":
 		if _, ok := n.Attrs["onChange"]; !ok {
@@ -255,8 +300,12 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 				if len(c.Children) != 0 {
 					return fmt.Errorf("goexml: line %d: <cell> cannot have children", c.Line)
 				}
-				if _, ok := c.Attrs["text"]; !ok {
-					return fmt.Errorf("goexml: line %d: <cell> needs a text attribute", c.Line)
+				attr := strings.TrimSpace(c.Attr("text"))
+				switch {
+				case attr != "" && c.Text != "":
+					return fmt.Errorf("goexml: line %d: <cell> takes text attribute or inner text, not both", c.Line)
+				case attr == "" && c.Text == "":
+					return fmt.Errorf("goexml: line %d: <cell> needs text: text attribute or inner text", c.Line)
 				}
 			}
 			if cols < 0 {
@@ -272,9 +321,14 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 }
 
 // checkAttrs rejects unknown attributes and tracks duplicate ids.
+// It also rejects inner text everywhere except cell and text elements,
+// which is checked here because every node passes through this function.
 func checkAttrs(n *Node, ids map[string]int) error {
 	if _, known := tagAttrs[n.Type]; !known {
 		return fmt.Errorf("goexml: line %d: unknown element <%s>", n.Line, n.Type)
+	}
+	if n.Type != "cell" && n.Type != "text" && n.Text != "" {
+		return fmt.Errorf("goexml: line %d: text is not allowed inside <%s>", n.Line, n.Type)
 	}
 	allowed := allowedAttrs(n.Type)
 	for name := range n.Attrs {
@@ -310,6 +364,16 @@ func checkValues(n *Node) error {
 	if v := n.Attr("align"); v != "" && v != "start" && v != "center" && v != "end" {
 		return fmt.Errorf("goexml: line %d: <%s> align must be start, center or end, got %q", n.Line, n.Type, v)
 	}
+	switch n.Attr("wrap") {
+	case "", "off", "word", "break":
+	default:
+		return fmt.Errorf("goexml: line %d: <%s> wrap must be word or break, got %q", n.Line, n.Type, n.Attr("wrap"))
+	}
+	switch n.Attr("justify") {
+	case "", "start", "center", "end", "space-between", "space-around", "space-evenly":
+	default:
+		return fmt.Errorf("goexml: line %d: <%s> justify must be start, center, end, space-between, space-around or space-evenly, got %q", n.Line, n.Type, n.Attr("justify"))
+	}
 	if _, err := styles.ParseStyle(n.Attr("style")); err != nil {
 		return fmt.Errorf("goexml: line %d: <%s> has %v", n.Line, n.Type, err)
 	}
@@ -322,6 +386,25 @@ func checkValues(n *Node) error {
 		}
 	}
 	return nil
+}
+
+// parseHexColor parses a "#rrggbb" color.
+func parseHexColor(s string, line int) (r, g, b uint8, err error) {
+	bad := func() (uint8, uint8, uint8, error) {
+		return 0, 0, 0, fmt.Errorf("goexml: line %d: color must look like #2e2e2e, got %q", line, s)
+	}
+	if len(s) != 7 || s[0] != '#' {
+		return bad()
+	}
+	var v [3]uint8
+	for i := 0; i < 3; i++ {
+		n, perr := strconv.ParseUint(s[1+2*i:3+2*i], 16, 8)
+		if perr != nil {
+			return bad()
+		}
+		v[i] = uint8(n)
+	}
+	return v[0], v[1], v[2], nil
 }
 
 // parseSize parses a "WxH" size such as "800x600".
