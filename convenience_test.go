@@ -49,8 +49,8 @@ func TestApplyAct(t *testing.T) {
 		t.Fatalf("Decode returned error: %v", err)
 	}
 	act := BuildAct(map[string]func(){
-		"OnBatal":  func() {},
-		"OnSimpan": func() {},
+		"OnCancel": func() {},
+		"OnSave":   func() {},
 	})
 	w, err := root.ApplyAct(act)
 	if err != nil {

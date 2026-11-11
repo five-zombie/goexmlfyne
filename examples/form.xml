@@ -2,7 +2,7 @@
   <window title="Form" size="800x600">
     <vbox id="main" padding="8" spacing="4" align="start">
       <label id="lblTitle" text="Enter name" />
-      <entry id="inpName" text="" placeholder="Name" expand="true" />
+      <entry id="inpName" text="" placeholder="Name" style="w-full" />
       <hbox id="actions" spacing="4" align="end">
         <button id="btnCancel" text="Cancel" onClick="OnCancel" />
         <button id="btnSave" text="Save" onClick="OnSave" />

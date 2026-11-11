@@ -32,10 +32,11 @@ func hints(w, h []bool, fixed []float32) []childHint {
 	var out []childHint
 	for i := range w {
 		var f float32
-		if i < len(fixed) {
+		set := i < len(fixed)
+		if set {
 			f = fixed[i]
 		}
-		out = append(out, childHint{wFull: w[i], hFull: h[i], fixedH: f})
+		out = append(out, childHint{wFull: w[i], hFull: h[i], fixedH: f, fixedSet: set})
 	}
 	return out
 }
@@ -81,7 +82,7 @@ func TestBoxLayoutFill(t *testing.T) {
 
 func TestBoxLayoutFixedH(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
-	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{40, 0}))
+	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{40}))
 	if got := l.MinSize([]fyne.CanvasObject{a, b}); got != fyne.NewSize(116, 90) {
 		t.Fatalf("MinSize = %v, want 116x90", got)
 	}
@@ -91,6 +92,23 @@ func TestBoxLayoutFixedH(t *testing.T) {
 	}
 	if b.pos.Y != 52 {
 		t.Fatalf("second child Y = %v, want 52", b.pos.Y)
+	}
+}
+
+// A zero fixed height collapses the child but the spacing gutter and
+// the rest of the layout keep flowing around it.
+func TestBoxLayoutFixedHZero(t *testing.T) {
+	a, b := newStub(100, 20), newStub(50, 30)
+	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{0}))
+	if got := l.MinSize([]fyne.CanvasObject{a, b}); got != fyne.NewSize(116, 50) {
+		t.Fatalf("MinSize = %v, want 116x50 (0 + 30 + spacing 4 + padding 16)", got)
+	}
+	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(116, 70))
+	if a.size.Height != 0 {
+		t.Fatalf("zero fixed height = %v, want 0", a.size.Height)
+	}
+	if b.pos.Y != 12 {
+		t.Fatalf("second child Y = %v, want 12 (padding 8 + 0 + spacing 4)", b.pos.Y)
 	}
 }
 

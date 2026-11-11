@@ -55,11 +55,21 @@ func (p *padLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	return fyne.NewSize(m.Width+p.pad.Left+p.pad.Right, m.Height+p.pad.Top+p.pad.Bottom)
 }
 
-// Layout centers the single child inside the padding.
+// Layout centers the single child inside the padding. Sizes never go
+// below zero: a container squeezed below its padding would otherwise
+// hand its child a negative size.
 func (p *padLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	if len(objects) == 0 {
 		return
 	}
+	w := size.Width - p.pad.Left - p.pad.Right
+	if w < 0 {
+		w = 0
+	}
+	h := size.Height - p.pad.Top - p.pad.Bottom
+	if h < 0 {
+		h = 0
+	}
 	objects[0].Move(fyne.NewPos(p.pad.Left, p.pad.Top))
-	objects[0].Resize(fyne.NewSize(size.Width-p.pad.Left-p.pad.Right, size.Height-p.pad.Top-p.pad.Bottom))
+	objects[0].Resize(fyne.NewSize(w, h))
 }

@@ -4,51 +4,99 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"io"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/five-zombie/goexmlfyne/styles"
 )
 
+// idPattern is the id contract from the standard: letters, digits and
+// underscore only, so ids stay referenceable in handlers and errors.
+var idPattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
 // Decode parses a goexml 0.1.0 document and validates it against the
 // schema. It returns the root node. Every error carries the 1-based
 // source line of the offending element.
 func Decode(data []byte) (*Node, error) {
+	// A UTF-8 BOM is common from Windows editors; strip it instead of
+	// misreporting it as text outside the root element.
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
 	d := xml.NewDecoder(bytes.NewReader(data))
-	for {
+	lt := newLineTracker(data)
+	var root *Node
+	for root == nil {
 		off := d.InputOffset()
 		tok, err := d.Token()
 		if err != nil {
-			return nil, fmt.Errorf("goexml: line %d: %v", lineAt(data, off), err)
+			if err == io.EOF {
+				return nil, fmt.Errorf("goexml: line %d: document has no root element", lt.at(off))
+			}
+			return nil, fmt.Errorf("goexml: line %d: %v", lt.at(off), err)
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			root, err := parseElement(d, data, t, off)
+			r, err := parseElement(lt, d, t, off)
 			if err != nil {
 				return nil, err
 			}
-			if err := validate(root); err != nil {
+			if err := validate(r); err != nil {
 				return nil, err
 			}
-			return root, nil
+			root = r
 		case xml.CharData:
 			if strings.TrimSpace(string(t)) != "" {
-				return nil, fmt.Errorf("goexml: line %d: text outside root element", lineAt(data, off))
+				return nil, fmt.Errorf("goexml: line %d: text outside root element", lt.at(off))
 			}
 		case xml.Comment, xml.ProcInst, xml.Directive:
 			continue
 		default:
-			return nil, fmt.Errorf("goexml: line %d: unexpected token", lineAt(data, off))
+			return nil, fmt.Errorf("goexml: line %d: unexpected token", lt.at(off))
+		}
+	}
+	// Anything after the root must be trailing whitespace or comments;
+	// a second element or stray text means the document was cut short
+	// or two documents were glued together.
+	for {
+		off := d.InputOffset()
+		tok, err := d.Token()
+		if err != nil {
+			if err == io.EOF {
+				return root, nil
+			}
+			return nil, fmt.Errorf("goexml: line %d: %v", lt.at(off), err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			return nil, fmt.Errorf("goexml: line %d: unexpected <%s> after root element", lt.at(off), t.Name.Local)
+		case xml.CharData:
+			if strings.TrimSpace(string(t)) != "" {
+				return nil, fmt.Errorf("goexml: line %d: text outside root element", lt.at(off))
+			}
+		case xml.Comment, xml.ProcInst, xml.Directive:
+			continue
+		default:
+			return nil, fmt.Errorf("goexml: line %d: unexpected token", lt.at(off))
 		}
 	}
 }
 
-// parseElement reads one element and its children into a Node tree.
-func parseElement(d *xml.Decoder, data []byte, start xml.StartElement, off int64) (*Node, error) {
-	n := &Node{Type: start.Name.Local, Attrs: map[string]string{}, Line: lineAt(data, off)}
+// parseElement reads one element and its contents into a Node tree.
+func parseElement(lt *lineTracker, d *xml.Decoder, start xml.StartElement, off int64) (*Node, error) {
+	// Reject namespaced elements, whether the prefix is declared or not:
+	// an undeclared prefix would otherwise parse as a plain local name
+	// and slip an alien document through validation.
+	if start.Name.Space != "" {
+		return nil, fmt.Errorf("goexml: line %d: namespaces are not supported", lt.at(off))
+	}
+	n := &Node{Type: start.Name.Local, Attrs: map[string]string{}, Line: lt.at(off)}
 	for _, a := range start.Attr {
 		if a.Name.Space != "" {
-			return nil, fmt.Errorf("goexml: line %d: namespaces are not supported", n.Line)
+			return nil, nodeErr(n, "namespaces are not supported")
+		}
+		if _, dup := n.Attrs[a.Name.Local]; dup {
+			return nil, nodeErr(n, "duplicate attribute %q", a.Name.Local)
 		}
 		n.Attrs[a.Name.Local] = a.Value
 	}
@@ -57,18 +105,18 @@ func parseElement(d *xml.Decoder, data []byte, start xml.StartElement, off int64
 		coff := d.InputOffset()
 		tok, err := d.Token()
 		if err != nil {
-			return nil, fmt.Errorf("goexml: line %d: inside <%s>: %v", n.Line, n.Type, err)
+			return nil, nodeErr(n, "inside: %v", err)
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			child, err := parseElement(d, data, t, coff)
+			child, err := parseElement(lt, d, t, coff)
 			if err != nil {
 				return nil, err
 			}
 			n.Children = append(n.Children, child)
 		case xml.EndElement:
 			if t.Name.Local != start.Name.Local {
-				return nil, fmt.Errorf("goexml: line %d: mismatched </%s>", lineAt(data, coff), t.Name.Local)
+				return nil, fmt.Errorf("goexml: line %d: mismatched </%s>", lt.at(coff), t.Name.Local)
 			}
 			n.Text = strings.TrimSpace(body.String())
 			return n, nil
@@ -82,15 +130,43 @@ func parseElement(d *xml.Decoder, data []byte, start xml.StartElement, off int64
 	}
 }
 
-// lineAt converts a byte offset into a 1-based line number.
-func lineAt(data []byte, off int64) int {
+// lineTracker converts byte offsets into 1-based line numbers without
+// rescanning the document from byte 0 on every element. Decoder offsets
+// move forward, so each query only scans the bytes since the last one.
+type lineTracker struct {
+	data []byte
+	off  int64
+	line int
+}
+
+func newLineTracker(data []byte) *lineTracker {
+	return &lineTracker{data: data, line: 1}
+}
+
+// at returns the line containing the byte at off.
+func (lt *lineTracker) at(off int64) int {
 	if off < 0 {
 		off = 0
+	} else if off > int64(len(lt.data)) {
+		off = int64(len(lt.data))
 	}
-	if off > int64(len(data)) {
-		off = int64(len(data))
+	if off < lt.off {
+		// Out-of-order query: rescan from the start to stay correct.
+		return bytes.Count(lt.data[:off], []byte{'\n'}) + 1
 	}
-	return bytes.Count(data[:off], []byte{'\n'}) + 1
+	lt.line += bytes.Count(lt.data[lt.off:off], []byte{'\n'})
+	lt.off = off
+	return lt.line
+}
+
+// nodeErr formats a node-scoped error, naming the element's id when it
+// has one, per the coding rules: line, tag, and id if present. The
+// format string must not repeat the "goexml: line" or tag prefix.
+func nodeErr(n *Node, format string, args ...any) error {
+	if id := n.Attr("id"); id != "" {
+		return fmt.Errorf("goexml: line %d: <%s id=%q> "+format, append([]any{n.Line, n.Type, id}, args...)...)
+	}
+	return fmt.Errorf("goexml: line %d: <%s> "+format, append([]any{n.Line, n.Type}, args...)...)
 }
 
 // validate checks the whole tree against the 0.1.0 schema.
@@ -99,14 +175,14 @@ func validate(root *Node) error {
 		return fmt.Errorf("goexml: line %d: root must be <goexml>", root.Line)
 	}
 	if v := root.Attr("version"); v != Version {
-		return fmt.Errorf("goexml: line %d: unsupported version %q, want %q", root.Line, v, Version)
+		return nodeErr(root, "unsupported version %q, want %q", v, Version)
 	}
 	ids := map[string]int{}
 	if err := checkAttrs(root, ids); err != nil {
 		return err
 	}
 	if len(root.Children) != 1 || root.Children[0].Type != "window" {
-		return fmt.Errorf("goexml: line %d: <goexml> must hold exactly one <window>", root.Line)
+		return nodeErr(root, "must hold exactly one <window>")
 	}
 	return checkWindow(root.Children[0], ids)
 }
@@ -119,11 +195,11 @@ func checkWindow(n *Node, ids map[string]int) error {
 		return err
 	}
 	if len(n.Children) == 0 {
-		return fmt.Errorf("goexml: line %d: <window> needs content", n.Line)
+		return nodeErr(n, "needs content")
 	}
 	for _, c := range n.Children {
 		if !widgets[c.Type] {
-			return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <window>", c.Line, c.Type)
+			return nodeErr(c, "is not allowed inside <window>")
 		}
 		if err := checkWidget(c, "window", ids); err != nil {
 			return err
@@ -139,39 +215,39 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 	}
 	switch n.Type {
 	case "vbox", "hbox":
-		if mode, ok := n.Attrs["column"]; ok && (n.Type != "vbox" || mode != "grid") {
-			return fmt.Errorf("goexml: line %d: unknown column mode %q, want grid on vbox", n.Line, mode)
+		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {
+			return nodeErr(n, "unknown column mode %q, want grid on vbox", mode)
 		}
 		min, max := 0, 0
 		if s, ok := n.Attrs["min"]; ok {
 			if n.Attr("column") != "grid" {
-				return fmt.Errorf("goexml: line %d: min needs column=\"grid\"", n.Line)
+				return nodeErr(n, "min needs column=\"grid\"")
 			}
 			v, err := strconv.Atoi(s)
 			if err != nil || v < 1 {
-				return fmt.Errorf("goexml: line %d: min must be an integer >= 1, got %q", n.Line, s)
+				return nodeErr(n, "min must be an integer >= 1, got %q", s)
 			}
 			min = v
 		}
 		if s, ok := n.Attrs["max"]; ok {
 			if n.Attr("column") != "grid" {
-				return fmt.Errorf("goexml: line %d: max needs column=\"grid\"", n.Line)
+				return nodeErr(n, "max needs column=\"grid\"")
 			}
 			v, err := strconv.Atoi(s)
 			if err != nil || v < 1 {
-				return fmt.Errorf("goexml: line %d: max must be an integer >= 1, got %q", n.Line, s)
+				return nodeErr(n, "max must be an integer >= 1, got %q", s)
 			}
 			max = v
 		}
 		if n.Attr("min") != "" && n.Attr("max") != "" && min > max {
-			return fmt.Errorf("goexml: line %d: min %d exceeds max %d", n.Line, min, max)
+			return nodeErr(n, "min %d exceeds max %d", min, max)
 		}
 		if len(n.Children) == 0 {
-			return fmt.Errorf("goexml: line %d: <%s> needs at least one child", n.Line, n.Type)
+			return nodeErr(n, "needs at least one child")
 		}
 		for _, c := range n.Children {
 			if !widgets[c.Type] {
-				return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <%s>", c.Line, c.Type, n.Type)
+				return nodeErr(c, "is not allowed inside <%s>", n.Type)
 			}
 			if err := checkWidget(c, n.Type, ids); err != nil {
 				return err
@@ -179,15 +255,15 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		}
 	case "border":
 		if len(n.Children) == 0 {
-			return fmt.Errorf("goexml: line %d: <border> needs at least one region", n.Line)
+			return nodeErr(n, "needs at least one region")
 		}
 		seen := map[string]bool{}
 		for _, c := range n.Children {
 			if !regions[c.Type] {
-				return fmt.Errorf("goexml: line %d: <%s> is not a border region", c.Line, c.Type)
+				return nodeErr(c, "is not a border region")
 			}
 			if seen[c.Type] {
-				return fmt.Errorf("goexml: line %d: duplicate <%s> region", c.Line, c.Type)
+				return nodeErr(c, "duplicate <%s> region", c.Type)
 			}
 			seen[c.Type] = true
 			if err := checkAttrs(c, ids); err != nil {
@@ -195,7 +271,7 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 			}
 			for _, g := range c.Children {
 				if !widgets[g.Type] {
-					return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <%s>", g.Line, g.Type, c.Type)
+					return nodeErr(g, "is not allowed inside <%s>", c.Type)
 				}
 				if err := checkWidget(g, c.Type, ids); err != nil {
 					return err
@@ -204,118 +280,123 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		}
 	case "label":
 		if _, ok := n.Attrs["text"]; !ok {
-			return fmt.Errorf("goexml: line %d: <label> needs a text attribute", n.Line)
+			return nodeErr(n, "needs a text attribute")
 		}
 		if len(n.Children) != 0 {
-			return fmt.Errorf("goexml: line %d: <label> cannot have children", n.Line)
+			return nodeErr(n, "cannot have children")
 		}
 	case "button":
 		if _, ok := n.Attrs["text"]; !ok {
-			return fmt.Errorf("goexml: line %d: <button> needs a text attribute", n.Line)
+			return nodeErr(n, "needs a text attribute")
 		}
 		if _, ok := n.Attrs["onClick"]; !ok {
-			return fmt.Errorf("goexml: line %d: <button> needs an onClick attribute", n.Line)
+			return nodeErr(n, "needs an onClick attribute")
 		}
 		if len(n.Children) != 0 {
-			return fmt.Errorf("goexml: line %d: <button> cannot have children", n.Line)
+			return nodeErr(n, "cannot have children")
 		}
 	case "text":
 		if len(n.Children) != 0 {
-			return fmt.Errorf("goexml: line %d: <text> cannot have children", n.Line)
+			return nodeErr(n, "cannot have children")
 		}
 		v := strings.TrimSpace(n.Attr("v"))
 		switch {
 		case v != "" && n.Text != "":
-			return fmt.Errorf("goexml: line %d: <text> takes v attribute or inner text, not both", n.Line)
+			return nodeErr(n, "takes v attribute or inner text, not both")
 		case v == "" && n.Text == "":
-			return fmt.Errorf("goexml: line %d: <text> needs text: v attribute or inner text", n.Line)
+			return nodeErr(n, "needs text: v attribute or inner text")
 		}
 	case "entry":
 		if len(n.Children) != 0 {
-			return fmt.Errorf("goexml: line %d: <entry> cannot have children", n.Line)
+			return nodeErr(n, "cannot have children")
 		}
 	case "rect":
 		if len(n.Children) != 0 {
-			return fmt.Errorf("goexml: line %d: <rect> cannot have children", n.Line)
+			return nodeErr(n, "cannot have children")
 		}
 		if _, _, _, err := parseHexColor(n.Attr("color"), n.Line); err != nil {
 			return err
 		}
 	case "select":
 		if _, ok := n.Attrs["onChange"]; !ok {
-			return fmt.Errorf("goexml: line %d: <select> needs an onChange attribute", n.Line)
+			return nodeErr(n, "needs an onChange attribute")
 		}
 		if len(n.Children) == 0 {
-			return fmt.Errorf("goexml: line %d: <select> needs at least one <option>", n.Line)
+			return nodeErr(n, "needs at least one <option>")
 		}
 		picked := 0
+		texts := map[string]int{}
 		for _, o := range n.Children {
 			if o.Type != "option" {
-				return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <select>", o.Line, o.Type)
+				return nodeErr(o, "is not allowed inside <select>")
 			}
 			if err := checkAttrs(o, ids); err != nil {
 				return err
 			}
 			if len(o.Children) != 0 {
-				return fmt.Errorf("goexml: line %d: <option> cannot have children", o.Line)
+				return nodeErr(o, "cannot have children")
 			}
 			if o.Attr("value") == "" {
-				return fmt.Errorf("goexml: line %d: <option> needs a value attribute", o.Line)
+				return nodeErr(o, "needs a value attribute")
 			}
 			if o.Attr("text") == "" {
-				return fmt.Errorf("goexml: line %d: <option> needs a text attribute", o.Line)
+				return nodeErr(o, "needs a text attribute")
 			}
+			if prev, dup := texts[o.Attr("text")]; dup {
+				return nodeErr(o, "duplicate option text %q, first seen on line %d", o.Attr("text"), prev)
+			}
+			texts[o.Attr("text")] = o.Line
 			if sel, ok := o.Attrs["selected"]; ok {
-				if sel != "true" {
-					return fmt.Errorf("goexml: line %d: <option> selected must be true, got %q", o.Line, sel)
+				if sel != "" {
+					return nodeErr(o, "selected takes no value, got %q", sel)
 				}
 				picked++
 			}
 		}
 		if picked > 1 {
-			return fmt.Errorf("goexml: line %d: <select> allows only one selected <option>", n.Line)
+			return nodeErr(n, "allows only one selected <option>")
 		}
 	case "table":
 		if len(n.Children) == 0 {
-			return fmt.Errorf("goexml: line %d: <table> needs at least one <row>", n.Line)
+			return nodeErr(n, "needs at least one <row>")
 		}
 		cols := -1
 		for _, r := range n.Children {
 			if r.Type != "row" {
-				return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <table>", r.Line, r.Type)
+				return nodeErr(r, "is not allowed inside <table>")
 			}
 			if err := checkAttrs(r, ids); err != nil {
 				return err
 			}
 			if len(r.Children) == 0 {
-				return fmt.Errorf("goexml: line %d: <row> needs at least one <cell>", r.Line)
+				return nodeErr(r, "needs at least one <cell>")
 			}
 			for _, c := range r.Children {
 				if c.Type != "cell" {
-					return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <row>", c.Line, c.Type)
+					return nodeErr(c, "is not allowed inside <row>")
 				}
 				if err := checkAttrs(c, ids); err != nil {
 					return err
 				}
 				if len(c.Children) != 0 {
-					return fmt.Errorf("goexml: line %d: <cell> cannot have children", c.Line)
+					return nodeErr(c, "cannot have children")
 				}
 				attr := strings.TrimSpace(c.Attr("text"))
 				switch {
 				case attr != "" && c.Text != "":
-					return fmt.Errorf("goexml: line %d: <cell> takes text attribute or inner text, not both", c.Line)
+					return nodeErr(c, "takes text attribute or inner text, not both")
 				case attr == "" && c.Text == "":
-					return fmt.Errorf("goexml: line %d: <cell> needs text: text attribute or inner text", c.Line)
+					return nodeErr(c, "needs text: text attribute or inner text")
 				}
 			}
 			if cols < 0 {
 				cols = len(r.Children)
 			} else if len(r.Children) != cols {
-				return fmt.Errorf("goexml: line %d: <row> has %d cells, want %d", r.Line, len(r.Children), cols)
+				return nodeErr(r, "has %d cells, want %d", len(r.Children), cols)
 			}
 		}
 	default:
-		return fmt.Errorf("goexml: line %d: unknown element <%s> inside <%s>", n.Line, n.Type, parent)
+		return nodeErr(n, "unknown element inside <%s>", parent)
 	}
 	return checkValues(n)
 }
@@ -325,61 +406,64 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 // which is checked here because every node passes through this function.
 func checkAttrs(n *Node, ids map[string]int) error {
 	if _, known := tagAttrs[n.Type]; !known {
-		return fmt.Errorf("goexml: line %d: unknown element <%s>", n.Line, n.Type)
+		return nodeErr(n, "unknown element")
 	}
 	if n.Type != "cell" && n.Type != "text" && n.Text != "" {
-		return fmt.Errorf("goexml: line %d: text is not allowed inside <%s>", n.Line, n.Type)
+		return nodeErr(n, "text is not allowed")
 	}
 	allowed := allowedAttrs(n.Type)
 	for name := range n.Attrs {
 		if !allowed[name] {
-			return fmt.Errorf("goexml: line %d: <%s> has no attribute %q", n.Line, n.Type, name)
+			return nodeErr(n, "has no attribute %q", name)
 		}
 	}
 	if id := n.Attr("id"); id != "" {
+		if !idPattern.MatchString(id) {
+			return nodeErr(n, "id must use letters, digits or _, got %q", id)
+		}
 		if prev, dup := ids[id]; dup {
-			return fmt.Errorf("goexml: line %d: duplicate id %q, first seen on line %d", n.Line, id, prev)
+			return nodeErr(n, "duplicate id, first seen on line %d", prev)
 		}
 		ids[id] = n.Line
 	} else if idRequired[n.Type] {
-		return fmt.Errorf("goexml: line %d: <%s> needs an id attribute", n.Line, n.Type)
+		return nodeErr(n, "needs an id attribute")
 	}
 	return nil
 }
 
 // checkValues validates attribute value formats.
 func checkValues(n *Node) error {
-	for _, key := range []string{"visible", "disabled", "expand"} {
+	for _, key := range []string{"visible", "disabled"} {
 		if v := n.Attr(key); v != "" && v != "true" && v != "false" {
-			return fmt.Errorf("goexml: line %d: <%s> %s must be true or false, got %q", n.Line, n.Type, key, v)
+			return nodeErr(n, "%s must be true or false, got %q", key, v)
 		}
 	}
 	for _, key := range []string{"padding", "spacing"} {
 		if v := n.Attr(key); v != "" {
 			if i, err := strconv.Atoi(v); err != nil || i < 0 {
-				return fmt.Errorf("goexml: line %d: <%s> %s must be a non-negative integer, got %q", n.Line, n.Type, key, v)
+				return nodeErr(n, "%s must be a non-negative integer, got %q", key, v)
 			}
 		}
 	}
 	if v := n.Attr("align"); v != "" && v != "start" && v != "center" && v != "end" {
-		return fmt.Errorf("goexml: line %d: <%s> align must be start, center or end, got %q", n.Line, n.Type, v)
+		return nodeErr(n, "align must be start, center or end, got %q", v)
 	}
 	switch n.Attr("wrap") {
 	case "", "off", "word", "break":
 	default:
-		return fmt.Errorf("goexml: line %d: <%s> wrap must be word or break, got %q", n.Line, n.Type, n.Attr("wrap"))
+		return nodeErr(n, "wrap must be word, break or off, got %q", n.Attr("wrap"))
 	}
 	switch n.Attr("justify") {
 	case "", "start", "center", "end", "space-between", "space-around", "space-evenly":
 	default:
-		return fmt.Errorf("goexml: line %d: <%s> justify must be start, center, end, space-between, space-around or space-evenly, got %q", n.Line, n.Type, n.Attr("justify"))
+		return nodeErr(n, "justify must be start, center, end, space-between, space-around or space-evenly, got %q", n.Attr("justify"))
 	}
 	if _, err := styles.ParseStyle(n.Attr("style")); err != nil {
-		return fmt.Errorf("goexml: line %d: <%s> has %v", n.Line, n.Type, err)
+		return nodeErr(n, "invalid style: %v", err)
 	}
 	if n.Type == "window" {
 		if t := n.Attr("title"); t == "" {
-			return fmt.Errorf("goexml: line %d: <window> needs a title attribute", n.Line)
+			return nodeErr(n, "needs a title attribute")
 		}
 		if _, _, err := parseSize(n.Attr("size"), n.Line); err != nil {
 			return err

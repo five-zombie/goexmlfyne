@@ -18,7 +18,17 @@ type Style struct {
 	Pad Edges
 	// Margin is the outer spacing per side.
 	Margin Edges
+
+	// hasW and hasH record whether any w-*/h-* utility appeared,
+	// so duplicates are rejected even when the value parses to zero
+	// (h-0 leaves FixedH at 0). hasFixed marks an h-N utility in
+	// particular, including h-0, which is a real zero height.
+	hasW, hasH, hasFixed bool
 }
+
+// HasFixedH reports whether an exact height utility (h-N, including
+// h-0) is present. h-full does not count.
+func (s Style) HasFixedH() bool { return s.hasFixed }
 
 // spacingAssign is one parsed token waiting for tier-ordered application.
 type spacingAssign struct {
@@ -32,7 +42,9 @@ func ParseStyle(s string) (Style, error) {
 	var st Style
 	var assigns []spacingAssign
 	for _, tok := range strings.Fields(s) {
-		if parseWidthToken(&st, tok) {
+		if ok, err := parseWidthToken(&st, tok); err != nil {
+			return Style{}, err
+		} else if ok {
 			continue
 		}
 		if ok, err := parseHeightToken(&st, tok); err != nil {

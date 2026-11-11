@@ -24,6 +24,9 @@ type Window struct {
 	Content fyne.CanvasObject
 	// byID maps widget ids to their built objects.
 	byID map[string]fyne.CanvasObject
+	// selectValues maps a select id to its option text-to-value table,
+	// so SelectValue can return the option value instead of the label.
+	selectValues map[string]map[string]string
 }
 
 // Find returns the built object for an XML id, or nil when absent.
@@ -31,8 +34,9 @@ func (w *Window) Find(id string) fyne.CanvasObject {
 	return w.byID[id]
 }
 
-// SelectValue returns the current choice of a select widget.
-// It reports false when id is unknown or not a select.
+// SelectValue returns the option value of the current choice of a
+// select widget. It reports false when id is unknown or not a select.
+// A choice set outside the declared options falls back to its label.
 func (w *Window) SelectValue(id string) (string, bool) {
 	o, ok := w.byID[id]
 	if !ok {
@@ -41,6 +45,11 @@ func (w *Window) SelectValue(id string) (string, bool) {
 	s, ok := o.(*widget.Select)
 	if !ok {
 		return "", false
+	}
+	if m, ok := w.selectValues[id]; ok {
+		if v, ok := m[s.Selected]; ok {
+			return v, true
+		}
 	}
 	return s.Selected, true
 }
@@ -52,16 +61,31 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 		return nil, fmt.Errorf("goexml: root must be a <goexml> node")
 	}
 	if len(root.Children) != 1 || root.Children[0].Type != "window" {
-		return nil, fmt.Errorf("goexml: line %d: <goexml> must hold one <window>", root.Line)
+		return nil, nodeErr(root, "must hold one <window>")
 	}
 	w := root.Children[0]
 	if len(w.Children) == 0 {
-		return nil, fmt.Errorf("goexml: line %d: <window> needs content", w.Line)
+		return nil, nodeErr(w, "needs content")
 	}
 	sw, sh, err := parseSize(w.Attr("size"), w.Line)
 	if err != nil {
 		return nil, err
 	}
+	selVals := map[string]map[string]string{}
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		if n.Type == "select" {
+			m := map[string]string{}
+			for _, o := range n.Children {
+				m[o.Attr("text")] = o.Attr("value")
+			}
+			selVals[n.Attr("id")] = m
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(w)
 	reg := map[string]fyne.CanvasObject{}
 	var objs []fyne.CanvasObject
 	var hints []childHint
@@ -82,10 +106,11 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 		)
 	}
 	return &Window{
-		Title:   w.Attr("title"),
-		Size:    fyne.NewSize(float32(sw), float32(sh)),
-		Content: content,
-		byID:    reg,
+		Title:        w.Attr("title"),
+		Size:         fyne.NewSize(float32(sw), float32(sh)),
+		Content:      content,
+		byID:         reg,
+		selectValues: selVals,
 	}, nil
 }
 
@@ -146,7 +171,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 				objs...,
 			)
 		} else if n.Type == "vbox" && n.Attr("column") != "" {
-			return nil, fmt.Errorf("goexml: line %d: unknown column mode %q, want grid", n.Line, n.Attr("column"))
+			return nil, nodeErr(n, "unknown column mode %q, want grid", n.Attr("column"))
 		} else {
 			box = container.New(
 				newBoxLayout(vertical, num(n.Attr("padding")), num(n.Attr("spacing")), alignOf(n), justifyOf(n), hints),
@@ -217,7 +242,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		name := n.Attr("onClick")
 		fn, ok := tap[name]
 		if !ok {
-			return nil, fmt.Errorf("goexml: line %d: no handler for onClick %q", n.Line, name)
+			return nil, nodeErr(n, "no handler for onClick %q", name)
 		}
 		return applyState(widget.NewButton(n.Attr("text"), fn), n), nil
 	case "entry":
@@ -236,13 +261,15 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		name := n.Attr("onChange")
 		fn, ok := tap[name]
 		if !ok {
-			return nil, fmt.Errorf("goexml: line %d: no handler for onChange %q", n.Line, name)
+			return nil, nodeErr(n, "no handler for onChange %q", name)
 		}
 		var options []string
 		selected := ""
 		for _, o := range n.Children {
 			options = append(options, o.Attr("text"))
-			if o.Attr("selected") == "true" {
+			if _, ok := o.Attrs["selected"]; ok {
+				// Validation rejects a valued selected; an empty
+				// selected="" marks the chosen option.
 				selected = o.Attr("text")
 			}
 		}
@@ -255,6 +282,19 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		}
 		return applyState(s, n), nil
 	case "table":
+		if len(n.Children) == 0 {
+			// Hand-built trees skip Decode validation; reject here
+			// instead of panicking on n.Children[0] below.
+			return nil, nodeErr(n, "needs at least one <row>")
+		}
+		// Same contract for ragged rows: uneven cell counts would panic
+		// later in the UpdateCell callback during render.
+		want := len(n.Children[0].Children)
+		for _, r := range n.Children[1:] {
+			if len(r.Children) != want {
+				return nil, nodeErr(r, "has %d cells, want %d", len(r.Children), want)
+			}
+		}
 		var cols []string
 		for _, c := range n.Children[0].Children {
 			cols = append(cols, cellText(c))
@@ -274,7 +314,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 				cell.(*widget.Label).SetText(rows[id.Row][id.Col])
 			},
 		)
-		widths := columnWidths(cols, rows)
+		widths, rowH := tableMetrics(cols, rows)
 		for i, w := range widths {
 			t.SetColumnWidth(i, w)
 		}
@@ -286,7 +326,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		if name := n.Attr("onSelect"); name != "" {
 			fn, ok := tap[name]
 			if !ok {
-				return nil, fmt.Errorf("goexml: line %d: no handler for onSelect %q", n.Line, name)
+				return nil, nodeErr(n, "no handler for onSelect %q", name)
 			}
 			t.OnSelected = func(widget.TableCellID) { fn() }
 		}
@@ -298,27 +338,13 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		// The template MinSize only fits about one row; size the
 		// wrapper for the header plus every data row so real
 		// content is visible.
-		rowH := float32(0)
-		probe := func(s string) {
-			if h := widget.NewLabel(s).MinSize().Height; h > rowH {
-				rowH = h
-			}
-		}
-		for _, c := range cols {
-			probe(c)
-		}
-		for _, r := range rows {
-			for _, s := range r {
-				probe(s)
-			}
-		}
 		box := container.New(newTableLayout(fyne.NewSize(totalW, rowH*float32(len(rows)+1)+8)), t)
 		if !t.Visible() {
 			box.Hide()
 		}
 		return box, nil
 	default:
-		return nil, fmt.Errorf("goexml: line %d: cannot build <%s>", n.Line, n.Type)
+		return nil, nodeErr(n, "cannot build")
 	}
 }
 
@@ -339,40 +365,66 @@ func cellText(n *Node) string {
 	return n.Text
 }
 
-// columnWidths returns one width per column: the widest cell content
-// plus padding, so real text is never truncated to fit.
-func columnWidths(cols []string, rows [][]string) []float32 {
-	measure := func(s string) float32 { return widget.NewLabel(s).MinSize().Width }
-	widths := make([]float32, len(cols))
+// tableMetrics measures the table in a single pass: column widths and
+// the shared row height come from one walk over the header and cells,
+// and each distinct string is measured only once — duplicate content
+// (status columns, numbers) costs one map lookup, not two labels.
+func tableMetrics(cols []string, rows [][]string) (widths []float32, rowH float32) {
+	cache := map[string]fyne.Size{}
+	measure := func(s string) fyne.Size {
+		if sz, ok := cache[s]; ok {
+			return sz
+		}
+		sz := widget.NewLabel(s).MinSize()
+		cache[s] = sz
+		return sz
+	}
+	widths = make([]float32, len(cols))
 	for i, c := range cols {
-		widths[i] = measure(c)
+		sz := measure(c)
+		widths[i] = sz.Width
+		if sz.Height > rowH {
+			rowH = sz.Height
+		}
 	}
 	for _, r := range rows {
-		for i := range r {
-			if i < len(widths) {
-				if w := measure(r[i]); w > widths[i] {
-					widths[i] = w
-				}
+		for i, s := range r {
+			sz := measure(s)
+			if i < len(widths) && sz.Width > widths[i] {
+				widths[i] = sz.Width
+			}
+			if sz.Height > rowH {
+				rowH = sz.Height
 			}
 		}
 	}
+	// Plus padding, so real text is never truncated to fit.
 	for i := range widths {
 		widths[i] += 16
 	}
-	return widths
+	return widths, rowH
 }
 
 // hintOf maps a validated node to its layout hint.
-// expand="true" is shorthand for w-full plus h-full.
 func hintOf(n *Node) childHint {
 	st := styleOf(n)
-	expand := n.Attr("expand") == "true"
 	w := strings.TrimSpace(n.Attr("wrap"))
+	// The standard defines h-N as the exact content height regardless of
+	// the widget's content. The pad and margin wrappers around the widget
+	// also take a share of the height the box layout assigns, so the hint
+	// carries the wrapper total to keep the content itself at N*4 px.
+	// h-0 is a real zero height, so it takes the same treatment.
+	fixedH := st.FixedH
+	fixedSet := st.HasFixedH()
+	if fixedSet {
+		fixedH += st.Pad.Top + st.Pad.Bottom + st.Margin.Top + st.Margin.Bottom
+	}
 	return childHint{
-		wFull:  st.WFull || expand,
-		hFull:  st.HFull || expand,
-		fixedH: st.FixedH,
-		wrap:   w == "word" || w == "break" || (n.Type == "text" && w != "off"),
+		wFull:    st.WFull,
+		hFull:    st.HFull,
+		fixedH:   fixedH,
+		fixedSet: fixedSet,
+		wrap:     w == "word" || w == "break" || (n.Type == "text" && w != "off"),
 	}
 }
 

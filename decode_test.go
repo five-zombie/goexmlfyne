@@ -8,11 +8,11 @@ import (
 const validDoc = `<goexml version="0.1.0">
   <window title="Form" size="800x600">
     <vbox id="main" padding="8" spacing="4" align="start">
-      <label id="lblJudul" text="Isi nama" />
-      <entry id="inpNama" text="" placeholder="Nama" expand="true" />
+      <label id="lblTitle" text="Enter name" />
+      <entry id="inpName" text="" placeholder="Name" style="w-full" />
       <hbox id="actions" spacing="4" align="end">
-        <button id="btnBatal" text="Batal" onClick="OnBatal" />
-        <button id="btnSimpan" text="Simpan" onClick="OnSimpan" />
+        <button id="btnCancel" text="Cancel" onClick="OnCancel" />
+        <button id="btnSave" text="Save" onClick="OnSave" />
       </hbox>
     </vbox>
   </window>
@@ -42,7 +42,7 @@ func TestDecodeValid(t *testing.T) {
 func TestDecodeSelectTable(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
 		`<vbox id="b"><select id="s" onChange="OnPick">` +
-		`<option value="a" text="A"/><option value="b" text="B, special" selected="true"/></select>` +
+		`<option value="a" text="A"/><option value="b" text="B, special" selected=""/></select>` +
 		`<table id="t"><row><cell text="Name"/><cell text="Age"/></row>` +
 		`<row><cell text="Ann"/><cell text="30"/></row></table>` +
 		`</vbox></window></goexml>`
@@ -90,6 +90,29 @@ func TestDecodeTextForms(t *testing.T) {
 	}
 }
 
+func TestDecodeTrailingComment(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml><!-- done -->  `
+	if _, err := Decode([]byte(doc)); err != nil {
+		t.Fatalf("Decode returned error for trailing comment: %v", err)
+	}
+}
+
+func TestDecodeBOM(t *testing.T) {
+	doc := "\ufeff" + validDoc
+	if _, err := Decode([]byte(doc)); err != nil {
+		t.Fatalf("Decode returned error for BOM-prefixed document: %v", err)
+	}
+}
+
+func TestDecodeEmpty(t *testing.T) {
+	for _, data := range []string{"", "\n  ", "<!-- only a comment -->"} {
+		_, err := Decode([]byte(data))
+		if err == nil || !strings.Contains(err.Error(), "no root element") {
+			t.Fatalf("Decode(%q) = %v, want no-root-element error", data, err)
+		}
+	}
+}
+
 func TestDecodeRejects(t *testing.T) {
 	cases := []struct {
 		name string
@@ -108,11 +131,17 @@ func TestDecodeRejects(t *testing.T) {
 		{"button no handler attr", `<goexml version="0.1.0"><window title="x" size="1x1"><button id="a" text="x"/></window></goexml>`, "needs an onClick"},
 		{"dup region", `<goexml version="0.1.0"><window title="x" size="1x1"><border id="b"><top><label id="a" text="x"/></top><top/></border></window></goexml>`, "duplicate <top>"},
 		{"select no options", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"/></window></goexml>`, "at least one <option>"},
-		{"select two selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected="true"/><option value="b" text="B" selected="true"/></select></window></goexml>`, "only one selected"},
-		{"select bad selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected="yes"/></select></window></goexml>`, "selected must be true"},
+		{"select two selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected=""/><option value="b" text="B" selected=""/></select></window></goexml>`, "only one selected"},
+		{"select valued selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected="true"/></select></window></goexml>`, "selected takes no value"},
 		{"select option no value", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option text="A"/></select></window></goexml>`, "needs a value attribute"},
 		{"select bad child", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><label id="l" text="x"/></select></window></goexml>`, "not allowed inside <select>"},
 		{"select no handler attr", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s"><option value="a" text="A"/></select></window></goexml>`, "needs an onChange"},
+		{"select dup option text", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A"/><option value="b" text="A"/></select></window></goexml>`, "duplicate option text"},
+		{"id with space", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a b" text="x"/></window></goexml>`, "letters, digits or _"},
+		{"id with slash", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="../x" text="x"/></window></goexml>`, "letters, digits or _"},
+		{"declared namespace", `<x:goexml xmlns:x="urn:x" version="0.1.0"><x:window title="x" size="1x1"><x:label id="a" text="x"/></x:window></x:goexml>`, "namespaces are not supported"},
+		{"undeclared namespace", `<x:goexml version="0.1.0"><x:window title="x" size="1x1"><x:label id="a" text="x"/></x:window></x:goexml>`, "namespaces are not supported"},
+		{"dup attribute", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="one" text="two"/></window></goexml>`, "duplicate attribute"},
 		{"table no rows", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"/></window></goexml>`, "at least one <row>"},
 		{"table cell mismatch", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><row><cell text="a"/><cell text="b"/></row><row><cell text="only"/></row></table></window></goexml>`, "has 1 cells, want 2"},
 		{"table bad child", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><label id="l" text="x"/></table></window></goexml>`, "not allowed inside <table>"},
@@ -123,6 +152,9 @@ func TestDecodeRejects(t *testing.T) {
 		{"text empty", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><text id="t"/></vbox></window></goexml>`, "needs text"},
 		{"text bad wrap", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><text id="t" wrap="wide">x</text></vbox></window></goexml>`, "wrap must be"},
 		{"label rejects wrap", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" wrap="word"/></window></goexml>`, "has no attribute"},
+		{"expand removed", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" expand="true"/></window></goexml>`, "has no attribute"},
+		{"style two widths", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="w-full w-full"/></window></goexml>`, "more than one w-*"},
+		{"style two heights", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="h-2 h-full"/></window></goexml>`, "more than one h-*"},
 		{"table empty row", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><row/></table></window></goexml>`, "at least one <cell>"},
 		{"rect no color", `<goexml version="0.1.0"><window title="x" size="1x1"><rect id="r"/></window></goexml>`, "color must look like"},
 		{"rect bad color", `<goexml version="0.1.0"><window title="x" size="1x1"><rect id="r" color="red"/></window></goexml>`, "color must look like"},
@@ -137,6 +169,9 @@ func TestDecodeRejects(t *testing.T) {
 		{"grid min without grid", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="g" min="2"><label id="a" text="x"/></vbox></window></goexml>`, "min needs column"},
 		{"grid min exceeds max", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="g" column="grid" min="5" max="2"><label id="a" text="x"/></vbox></window></goexml>`, "min 5 exceeds max 2"},
 		{"grid min zero", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="g" column="grid" min="0"><label id="a" text="x"/></vbox></window></goexml>`, "min must be an integer"},
+		{"trailing text", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml>garbage`, "text outside root element"},
+		{"second root", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml><goexml version="0.1.0"><window title="y" size="1x1"><label id="b" text="y"/></window></goexml>`, "after root element"},
+		{"wrap names off", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><text id="t" wrap="wide">x</text></vbox></window></goexml>`, "word, break or off"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -148,5 +183,28 @@ func TestDecodeRejects(t *testing.T) {
 				t.Fatalf("error %q does not contain %q", err, c.want)
 			}
 		})
+	}
+}
+
+// Errors name line, tag, and the element's id when it has one.
+func TestDecodeErrorNamesID(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<label id="lblTitle" text="x" color="red"/></window></goexml>`
+	_, err := Decode([]byte(doc))
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	for _, want := range []string{`line 1`, `<label`, `id="lblTitle"`, `has no attribute`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q does not mention %q", err, want)
+		}
+	}
+
+	// A node without an id keeps the plain <tag> form.
+	doc = `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<vbox id="b"><option text="A"/></vbox></window></goexml>`
+	_, err = Decode([]byte(doc))
+	if err == nil || !strings.Contains(err.Error(), "<option> is not allowed inside <vbox>") {
+		t.Fatalf("error %q does not use the plain <option> form", err)
 	}
 }

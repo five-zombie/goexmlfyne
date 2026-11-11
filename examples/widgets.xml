@@ -2,9 +2,9 @@
   <window title="Widgets" size="800x600">
     <vbox id="main" padding="8" spacing="4" align="start">
       <label id="lblPick" text="Pick a city" />
-      <select id="kota" onChange="OnPick">
+      <select id="city" onChange="OnPick">
         <option value="jkt" text="Jakarta" />
-        <option value="bdg" text="Bandung" selected="true" />
+        <option value="bdg" text="Bandung" selected="" />
         <option value="sby" text="Surabaya" />
       </select>
       <table id="users" onSelect="OnRow">

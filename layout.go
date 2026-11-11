@@ -7,10 +7,11 @@ import "fyne.io/fyne/v2"
 // theme padding so goexml documents render the same on every platform.
 // childHint carries one child's sizing wishes into the layout.
 type childHint struct {
-	wFull  bool    // fill the parent width
-	hFull  bool    // fill the parent height
-	fixedH float32 // exact height in px, or 0 for content height
-	wrap   bool    // re-measure after wrapping at the assigned width
+	wFull    bool    // fill the parent width
+	hFull    bool    // fill the parent height
+	fixedH   float32 // exact height in px
+	fixedSet bool    // an exact height is present, even 0 (h-0)
+	wrap     bool    // re-measure after wrapping at the assigned width
 }
 
 // tableLayout gives a table its measured size: Fyne's Table.MinSize
@@ -104,7 +105,7 @@ func (b *boxLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	for i, o := range vis {
 		m := o.MinSize()
 		h := m.Height
-		if hs[i].fixedH > 0 {
+		if hs[i].fixedSet {
 			h = hs[i].fixedH
 		}
 		if b.vertical {
@@ -139,7 +140,7 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	for i, o := range vis {
 		sizes[i] = o.MinSize()
 		h := sizes[i].Height
-		if hs[i].fixedH > 0 {
+		if hs[i].fixedSet {
 			h = hs[i].fixedH
 			sizes[i].Height = h
 		}
@@ -200,7 +201,7 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		// A full-width child also re-measures: at its final width a
 		// container sees its real content height (grown text rows),
 		// while fixed widgets measure the same and are unaffected.
-		if (!hs[i].wrap && !hs[i].wFull) || hs[i].fixedH > 0 {
+		if (!hs[i].wrap && !hs[i].wFull) || hs[i].fixedSet {
 			continue
 		}
 		o.Refresh()
@@ -419,8 +420,8 @@ func (g *gridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	for r, row := range rows {
 		for c, o := range row {
 			h := o.MinSize().Height
-			if fh := rhints[r][c].fixedH; fh > 0 {
-				h = fh
+			if rhints[r][c].fixedSet {
+				h = rhints[r][c].fixedH
 			}
 			if h > rowH[r] {
 				rowH[r] = h
@@ -432,7 +433,7 @@ func (g *gridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	// Grow wrapped text to its full wrapped height, like boxLayout.
 	for r, row := range rows {
 		for c, o := range row {
-			if !rhints[r][c].wrap || rhints[r][c].fixedH > 0 {
+			if !rhints[r][c].wrap || rhints[r][c].fixedSet {
 				continue
 			}
 			o.Refresh()

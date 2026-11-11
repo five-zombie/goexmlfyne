@@ -37,8 +37,8 @@ func buildValid(t *testing.T, tap map[string]func()) *Window {
 func TestBuildForm(t *testing.T) {
 	saved := false
 	w := buildValid(t, map[string]func(){
-		"OnBatal":  func() {},
-		"OnSimpan": func() { saved = true },
+		"OnCancel": func() {},
+		"OnSave":   func() { saved = true },
 	})
 	if w.Title != "Form" {
 		t.Fatalf("title = %q, want Form", w.Title)
@@ -64,7 +64,7 @@ func TestBuildForm(t *testing.T) {
 	}
 	btn.OnTapped()
 	if !saved {
-		t.Fatal("tapping save did not call OnSimpan")
+		t.Fatal("tapping save did not call OnSave")
 	}
 }
 
@@ -124,7 +124,7 @@ func TestBuildBorder(t *testing.T) {
 func TestBuildSelectTable(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
 		`<vbox id="b"><select id="s" onChange="OnPick">` +
-		`<option value="a" text="A"/><option value="b" text="B" selected="true"/></select>` +
+		`<option value="a" text="A"/><option value="b" text="B" selected=""/></select>` +
 		`<table id="t"><row><cell text="Name"/><cell text="Age"/></row>` +
 		`<row><cell text="Ann"/><cell text="30"/></row>` +
 		`<row><cell text="Bo"/><cell text="25"/></row></table>` +
@@ -212,6 +212,153 @@ func TestBuildTableSelect(t *testing.T) {
 	}
 }
 
+func TestBuildTableNoRows(t *testing.T) {
+	root := &Node{Type: "goexml", Attrs: map[string]string{"version": "0.1.0"}, Children: []*Node{
+		{Type: "window", Attrs: map[string]string{"title": "x", "size": "10x10"}, Children: []*Node{
+			{Type: "table", Line: 3},
+		}},
+	}}
+	_, err := Build(root, map[string]func(){})
+	if err == nil || !strings.Contains(err.Error(), "needs at least one <row>") {
+		t.Fatalf("Build error = %v, want table row complaint", err)
+	}
+}
+
+func TestBuildTableRaggedCells(t *testing.T) {
+	root := &Node{Type: "goexml", Attrs: map[string]string{"version": "0.1.0"}, Children: []*Node{
+		{Type: "window", Attrs: map[string]string{"title": "x", "size": "10x10"}, Children: []*Node{
+			{Type: "table", Attrs: map[string]string{"id": "t"}, Children: []*Node{
+				{Type: "row", Children: []*Node{
+					{Type: "cell", Attrs: map[string]string{"text": "A"}},
+					{Type: "cell", Attrs: map[string]string{"text": "B"}},
+				}},
+				{Type: "row", Line: 6, Children: []*Node{
+					{Type: "cell", Attrs: map[string]string{"text": "1"}},
+				}},
+			}},
+		}},
+	}}
+	_, err := Build(root, map[string]func(){})
+	if err == nil || !strings.Contains(err.Error(), "has 1 cells, want 2") {
+		t.Fatalf("Build error = %v, want ragged row complaint", err)
+	}
+}
+
+// h-N sizes the content; the pad and margin wrappers take their share
+// from the height the layout assigns, never from the content.
+// A child carrying w-full and h-full takes the parent's full content
+// area: the fill dimensions resolve against the parent, not siblings.
+func TestBuildFillTakesParentArea(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x100">` +
+		`<vbox id="b"><rect id="r" color="#2e2e2e" style="w-full h-full"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(200, 100))
+	r := box.Objects[0]
+	if got := r.Size(); got.Width != 200 || got.Height != 100 {
+		t.Fatalf("w-full h-full child = %vx%v, want 200x100 (parent area)", got.Width, got.Height)
+	}
+}
+
+// Fill dimensions resolve against the parent's content area: a
+// padded parent keeps its padding, the child never overlaps it.
+func TestBuildFillRespectsParentPadding(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x100">` +
+		`<vbox id="b" padding="8"><rect id="r" color="#2e2e2e" style="w-full h-full"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(200, 100))
+	r := box.Objects[0]
+	if got := r.Size(); got.Width != 184 || got.Height != 84 {
+		t.Fatalf("w-full h-full child = %vx%v, want 184x84 (200x100 minus padding 8)", got.Width, got.Height)
+	}
+	if got := r.Position(); got.X != 8 || got.Y != 8 {
+		t.Fatalf("w-full h-full child at (%v,%v), want (8,8)", got.X, got.Y)
+	}
+}
+
+// h-0 is a real zero height: an invisible element that still takes
+// part in layout through its margin (a spacer).
+func TestBuildFixedHeightZeroSpacer(t *testing.T) {
+	for _, tc := range []struct {
+		style string
+		outer float32
+	}{
+		{"h-0", 0},      // invisible, no footprint
+		{"h-0 m-2", 16}, // invisible, pushes neighbours apart via margin
+	} {
+		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+			`<vbox id="b"><rect id="r" color="#2e2e2e" style="` + tc.style + `"/></vbox></window></goexml>`
+		root, err := Decode([]byte(doc))
+		if err != nil {
+			t.Fatalf("Decode %s returned error: %v", tc.style, err)
+		}
+		w, err := Build(root, map[string]func(){})
+		if err != nil {
+			t.Fatalf("Build %s returned error: %v", tc.style, err)
+		}
+		box := w.Content.(*fyne.Container)
+		box.Layout.Layout(box.Objects, fyne.NewSize(300, 400))
+		outer := box.Objects[0]
+		if outer.Size().Height != tc.outer {
+			t.Fatalf("%s wrapper height = %v, want %v", tc.style, outer.Size().Height, tc.outer)
+		}
+	}
+}
+
+func TestBuildFixedHeightWrappers(t *testing.T) {
+	for _, tc := range []struct {
+		style string
+		outer float32 // wrapper height the box layout assigns
+	}{
+		{"h-2 p-2", 24},     // 8 content + 8+8 padding
+		{"h-2 m-2", 24},     // 8 content + 8+8 margin
+		{"h-2 p-2 m-2", 40}, // 8 content + 16 padding + 16 margin
+	} {
+		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+			`<vbox id="b"><rect id="r" color="#2e2e2e" style="` + tc.style + `"/></vbox></window></goexml>`
+		root, err := Decode([]byte(doc))
+		if err != nil {
+			t.Fatalf("Decode %s returned error: %v", tc.style, err)
+		}
+		w, err := Build(root, map[string]func(){})
+		if err != nil {
+			t.Fatalf("Build %s returned error: %v", tc.style, err)
+		}
+		box := w.Content.(*fyne.Container)
+		box.Layout.Layout(box.Objects, fyne.NewSize(300, 400))
+		outer := box.Objects[0]
+		if outer.Size().Height != tc.outer {
+			t.Fatalf("%s wrapper height = %v, want %v", tc.style, outer.Size().Height, tc.outer)
+		}
+		inner := fyne.CanvasObject(outer)
+		for {
+			c, ok := inner.(*fyne.Container)
+			if !ok || len(c.Objects) != 1 {
+				break
+			}
+			inner = c.Objects[0]
+		}
+		if inner.Size().Height != 8 {
+			t.Fatalf("%s content height = %v, want 8", tc.style, inner.Size().Height)
+		}
+	}
+}
+
 func TestScrollWrapsTallContent(t *testing.T) {
 	data, err := os.ReadFile("examples/showcase.xml")
 	if err != nil {
@@ -247,7 +394,7 @@ func TestScrollWrapsTallContent(t *testing.T) {
 
 func TestWindowFindSelectValue(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
-		`<vbox id="b"><select id="kota" onChange="OnPick">` +
+		`<vbox id="b"><select id="city" onChange="OnPick">` +
 		`<option value="jkt" text="Jakarta"/><option value="bdg" text="Bandung"/></select>` +
 		`<entry id="nama"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -264,15 +411,15 @@ func TestWindowFindSelectValue(t *testing.T) {
 	if _, ok := w.Find("b").(*fyne.Container); !ok {
 		t.Fatalf("Find(b) is %T, want *fyne.Container", w.Find("b"))
 	}
-	got, ok := w.SelectValue("kota")
+	got, ok := w.SelectValue("city")
 	if !ok || got != "" {
-		t.Fatalf("SelectValue(kota) = %q, %v; want empty initial choice", got, ok)
+		t.Fatalf("SelectValue(city) = %q, %v; want empty initial choice", got, ok)
 	}
-	sel := w.Find("kota").(*widget.Select)
+	sel := w.Find("city").(*widget.Select)
 	sel.SetSelected("Bandung")
-	got, ok = w.SelectValue("kota")
-	if !ok || got != "Bandung" {
-		t.Fatalf("SelectValue(kota) = %q, %v; want Bandung, true", got, ok)
+	got, ok = w.SelectValue("city")
+	if !ok || got != "bdg" {
+		t.Fatalf("SelectValue(city) = %q, %v; want bdg, true", got, ok)
 	}
 	if _, ok := w.SelectValue("nama"); ok {
 		t.Fatal("SelectValue of an entry reported true")
@@ -371,6 +518,28 @@ func TestBuildHBoxFullWidth(t *testing.T) {
 	full := box.Objects[1].Size().Width
 	if full <= plain || full < 200 {
 		t.Fatalf("w-full in hbox = %v, plain = %v; want full to take leftover width", full, plain)
+	}
+}
+
+// In a grid the final cell height is the row height: h-N only raises
+// the row minimum, it never disables the stretch.
+func TestBuildGridStretchWins(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox id="g" column="grid" min="1" max="1">` +
+		`<rect id="r" color="#2e2e2e" style="h-2"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	box.Layout.Layout(box.Objects, fyne.NewSize(200, 400))
+	r := box.Objects[0]
+	if got := r.Size().Height; got != 400 { // single row, no padding: row height wins
+		t.Fatalf("grid cell height = %v, want 400 (row height wins over h-2)", got)
 	}
 }
 
@@ -608,7 +777,7 @@ func TestBuildTenThousandWords(t *testing.T) {
 }
 
 func TestColumnWidths(t *testing.T) {
-	ws := columnWidths([]string{"Name", "Role"}, [][]string{{"Ann", "Designer"}, {"Bo", "Engineer"}})
+	ws, rowH := tableMetrics([]string{"Name", "Role"}, [][]string{{"Ann", "Designer"}, {"Bo", "Engineer"}})
 	if len(ws) != 2 {
 		t.Fatalf("got %d widths, want 2", len(ws))
 	}
@@ -618,7 +787,10 @@ func TestColumnWidths(t *testing.T) {
 	if ws[0] <= 0 || ws[1] <= 0 {
 		t.Fatalf("widths must be positive, got %v", ws)
 	}
-	plain := columnWidths([]string{"A"}, [][]string{{"B"}})
+	if rowH <= 0 {
+		t.Fatalf("row height must be positive, got %v", rowH)
+	}
+	plain, _ := tableMetrics([]string{"A"}, [][]string{{"B"}})
 	if plain[0] <= 16 {
 		t.Fatalf("single column width %v should include padding", plain[0])
 	}

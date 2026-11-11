@@ -27,6 +27,19 @@ func TestParseStyle(t *testing.T) {
 			t.Fatalf("error %q does not name %q", err, s)
 		}
 	}
+	// h-0 is a real zero height, not a no-op: the flag says an exact
+	// height is present. h-full does not count as one.
+	st, err = ParseStyle("h-0")
+	if err != nil {
+		t.Fatalf("ParseStyle h-0 returned error: %v", err)
+	}
+	if st.FixedH != 0 || !st.HasFixedH() {
+		t.Fatalf("ParseStyle h-0 = %+v, want FixedH 0 with HasFixedH", st)
+	}
+	st, err = ParseStyle("h-full")
+	if err != nil || st.HasFixedH() {
+		t.Fatalf("ParseStyle h-full HasFixedH = %v, want false", st.HasFixedH())
+	}
 	st, err = ParseStyle("m-2")
 	if err != nil {
 		t.Fatalf("ParseStyle m-2 returned error: %v", err)
@@ -34,12 +47,13 @@ func TestParseStyle(t *testing.T) {
 	if st.Margin != UniformEdges(8) || st.WFull || !st.Pad.IsZero() {
 		t.Fatalf("ParseStyle m-2 = %+v, want only Margin 8", st)
 	}
-	st, err = ParseStyle("h-full h-2")
-	if err != nil {
-		t.Fatalf("ParseStyle h-full h-2 returned error: %v", err)
-	}
-	if !st.HFull || st.FixedH != 8 {
-		t.Fatalf("ParseStyle = %+v, want HFull and FixedH 8", st)
+	for _, s := range []string{"w-full w-full", "h-full h-full", "h-2 h-full", "h-full h-2", "h-2 h-4"} {
+		_, err := ParseStyle(s)
+		if err == nil {
+			t.Fatalf("ParseStyle(%q) expected duplicate-dimension error, got nil", s)
+		} else if !strings.Contains(err.Error(), "more than one") {
+			t.Fatalf("ParseStyle(%q) error %q does not report a duplicate", s, err)
+		}
 	}
 	st, err = ParseStyle("p-2 pt-4 mx-1 ml-3")
 	if err != nil {

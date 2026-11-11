@@ -3,8 +3,10 @@ package goexml
 // Version is the goexml standard version this parser implements.
 const Version = "0.1.0"
 
-// commonAttrs are allowed on every widget element.
-var commonAttrs = []string{"id", "visible", "disabled", "style"}
+// commonAttrs are allowed on every widget element. disabled is not
+// common: it only reaches widgets that implement fyne.Disableable,
+// so the schema lists it per tag instead of promising it everywhere.
+var commonAttrs = []string{"id", "visible", "style"}
 
 // tagAttrs maps each 0.1.0 element to its own allowed attributes.
 // Common attributes are merged in by allowedAttrs, except for the
@@ -21,12 +23,12 @@ var tagAttrs = map[string][]string{
 	"left":   {},
 	"right":  {},
 	"center": {},
-	"label":  {"text", "expand"},
+	"label":  {"text"},
 	"text":   {"v", "wrap"},
-	"button": {"text", "onClick", "expand"},
-	"entry":  {"text", "placeholder", "expand"},
+	"button": {"text", "onClick", "disabled"},
+	"entry":  {"text", "placeholder", "disabled"},
 	"rect":   {"color"},
-	"select": {"onChange"},
+	"select": {"onChange", "disabled"},
 	"option": {"value", "text", "selected"},
 	"table":  {"onSelect"},
 	"row":    {},
