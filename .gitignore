@@ -1,0 +1,5 @@
+.knowledges/
+knl-config.json
+.agents/
+AGENTS.md
+.gemini/

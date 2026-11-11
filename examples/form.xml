@@ -1,0 +1,12 @@
+<goexml version="0.1.0">
+  <window title="Form" size="800x600">
+    <vbox id="main" padding="8" spacing="4" align="start">
+      <label id="lblJudul" text="Isi nama" />
+      <entry id="inpNama" text="" placeholder="Nama" expand="true" />
+      <hbox id="actions" spacing="4" align="end">
+        <button id="btnBatal" text="Batal" onClick="OnBatal" />
+        <button id="btnSimpan" text="Simpan" onClick="OnSimpan" />
+      </hbox>
+    </vbox>
+  </window>
+</goexml>
