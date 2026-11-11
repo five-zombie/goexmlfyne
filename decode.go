@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/five-zombie/goexmlfyne/styles"
 )
 
 // Decode parses a goexml 0.1.0 document and validates it against the
@@ -307,6 +309,9 @@ func checkValues(n *Node) error {
 	}
 	if v := n.Attr("align"); v != "" && v != "start" && v != "center" && v != "end" {
 		return fmt.Errorf("goexml: line %d: <%s> align must be start, center or end, got %q", n.Line, n.Type, v)
+	}
+	if _, err := styles.ParseStyle(n.Attr("style")); err != nil {
+		return fmt.Errorf("goexml: line %d: <%s> has %v", n.Line, n.Type, err)
 	}
 	if n.Type == "window" {
 		if t := n.Attr("title"); t == "" {

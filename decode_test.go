@@ -86,6 +86,9 @@ func TestDecodeRejects(t *testing.T) {
 		{"table bad cell child", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><row><label id="l" text="x"/></row></table></window></goexml>`, "not allowed inside <row>"},
 		{"table cell no text", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><row><cell/></row></table></window></goexml>`, "needs a text attribute"},
 		{"table empty row", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><row/></table></window></goexml>`, "at least one <cell>"},
+		{"style unknown", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="wide"/></window></goexml>`, "unknown style"},
+		{"style bad pad", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="p-9"/></window></goexml>`, "bad padding"},
+		{"style bad margin", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="m-9"/></window></goexml>`, "bad margin"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

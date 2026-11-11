@@ -7,6 +7,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/five-zombie/goexmlfyne/styles"
 )
 
 // Window is a decoded goexml document rendered into Fyne objects.
@@ -70,8 +72,12 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 	if len(objs) == 1 {
 		content = objs[0]
 	} else {
+		fill := make([]bool, len(w.Children))
+		for i, c := range w.Children {
+			fill[i] = styleFill(c)
+		}
 		content = container.New(
-			newBoxLayout(true, 0, 4, "start", make([]bool, len(objs))), objs...,
+			newBoxLayout(true, 0, 4, "start", make([]bool, len(objs)), fill), objs...,
 		)
 	}
 	return &Window{
@@ -89,8 +95,19 @@ func buildObject(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 	if err != nil {
 		return nil, err
 	}
+	inner := o
+	st := styleOf(n)
+	if !st.Pad.IsZero() {
+		o = styles.NewPad(st.Pad, o)
+		if !inner.Visible() {
+			o.Hide()
+		}
+	}
+	if !st.Margin.IsZero() {
+		o = styles.NewMargin(st.Margin, o)
+	}
 	if id := n.Attr("id"); id != "" {
-		reg[id] = o
+		reg[id] = inner
 	}
 	return o, nil
 }
@@ -101,6 +118,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 	case "vbox", "hbox":
 		var objs []fyne.CanvasObject
 		var expand []bool
+		var fill []bool
 		for _, c := range n.Children {
 			o, err := buildObject(c, tap, reg)
 			if err != nil {
@@ -108,9 +126,10 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 			}
 			objs = append(objs, o)
 			expand = append(expand, c.Attr("expand") == "true")
+			fill = append(fill, styleFill(c))
 		}
 		box := container.New(
-			newBoxLayout(n.Type == "vbox", num(n.Attr("padding")), num(n.Attr("spacing")), alignOf(n), expand),
+			newBoxLayout(n.Type == "vbox", num(n.Attr("padding")), num(n.Attr("spacing")), alignOf(n), expand, fill),
 			objs...,
 		)
 		return applyState(box, n), nil
@@ -132,7 +151,11 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 			case 1:
 				o = objs[0]
 			default:
-				o = container.New(newBoxLayout(true, 0, 4, "start", make([]bool, len(objs))), objs...)
+				fill := make([]bool, len(r.Children))
+				for i, g := range r.Children {
+					fill[i] = styleFill(g)
+				}
+				o = container.New(newBoxLayout(true, 0, 4, "start", make([]bool, len(objs)), fill), objs...)
 			}
 			switch r.Type {
 			case "top":
@@ -223,6 +246,18 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 	default:
 		return nil, fmt.Errorf("goexml: line %d: cannot build <%s>", n.Line, n.Type)
 	}
+}
+
+// styleOf reads the style attribute leniently for the builder.
+// Decode is the strict gate; invalid styles become the zero Style here.
+func styleOf(n *Node) styles.Style {
+	st, _ := styles.ParseStyle(n.Attr("style"))
+	return st
+}
+
+// styleFill reports whether the node fills the parent cross axis.
+func styleFill(n *Node) bool {
+	return styleOf(n).Fill
 }
 
 // applyState enforces the visible and disabled attributes.

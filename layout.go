@@ -11,30 +11,33 @@ type boxLayout struct {
 	spacing  float32
 	align    string // start, center or end on the cross axis
 	expand   []bool // per-child expansion along the main axis
+	fill     []bool // per-child cross-axis fill without main-axis growth
 }
 
 // newBoxLayout returns a vertical (vbox) or horizontal (hbox) layout.
-func newBoxLayout(vertical bool, padding, spacing float32, align string, expand []bool) fyne.Layout {
-	return &boxLayout{vertical: vertical, padding: padding, spacing: spacing, align: align, expand: expand}
+func newBoxLayout(vertical bool, padding, spacing float32, align string, expand, fill []bool) fyne.Layout {
+	return &boxLayout{vertical: vertical, padding: padding, spacing: spacing, align: align, expand: expand, fill: fill}
 }
 
-// shown returns the visible children with their expansion flags.
-func (b *boxLayout) shown(objects []fyne.CanvasObject) ([]fyne.CanvasObject, []bool) {
+// shown returns the visible children with their expansion and fill flags.
+func (b *boxLayout) shown(objects []fyne.CanvasObject) ([]fyne.CanvasObject, []bool, []bool) {
 	var vis []fyne.CanvasObject
 	var exp []bool
+	var fill []bool
 	for i, o := range objects {
 		if !o.Visible() {
 			continue
 		}
 		vis = append(vis, o)
 		exp = append(exp, i < len(b.expand) && b.expand[i])
+		fill = append(fill, i < len(b.fill) && b.fill[i])
 	}
-	return vis, exp
+	return vis, exp, fill
 }
 
 // MinSize returns the smallest size holding all visible children.
 func (b *boxLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
-	vis, _ := b.shown(objects)
+	vis, _, _ := b.shown(objects)
 	var main, cross float32
 	for _, o := range vis {
 		m := o.MinSize()
@@ -61,7 +64,7 @@ func (b *boxLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 
 // Layout positions visible children inside size.
 func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	vis, exp := b.shown(objects)
+	vis, exp, fill := b.shown(objects)
 	if len(vis) == 0 {
 		return
 	}
@@ -105,9 +108,13 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 			if exp[i] {
 				h += share
 				w = cross
+			} else if fill[i] {
+				w = cross
 			}
 		} else if exp[i] {
 			w += share
+			h = cross
+		} else if fill[i] {
 			h = cross
 		}
 		var x, y float32

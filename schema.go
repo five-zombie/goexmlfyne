@@ -4,7 +4,7 @@ package goexml
 const Version = "0.1.0"
 
 // commonAttrs are allowed on every widget element.
-var commonAttrs = []string{"id", "visible", "disabled"}
+var commonAttrs = []string{"id", "visible", "disabled", "style"}
 
 // tagAttrs maps each 0.1.0 element to its own allowed attributes.
 // Common attributes are merged in by allowedAttrs, except for the

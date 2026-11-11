@@ -29,7 +29,7 @@ func (s *stubObject) Hide()                   { s.shown = false }
 func (s *stubObject) Refresh()                {}
 
 func TestBoxMinSize(t *testing.T) {
-	l := newBoxLayout(true, 8, 4, "start", []bool{false, false})
+	l := newBoxLayout(true, 8, 4, "start", []bool{false, false}, []bool{false, false})
 	got := l.MinSize([]fyne.CanvasObject{newStub(100, 20), newStub(50, 30)})
 	want := fyne.NewSize(116, 70)
 	if got != want {
@@ -39,7 +39,7 @@ func TestBoxMinSize(t *testing.T) {
 
 func TestBoxLayoutExpand(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
-	l := newBoxLayout(true, 8, 4, "start", []bool{false, true})
+	l := newBoxLayout(true, 8, 4, "start", []bool{false, true}, []bool{false, false})
 	size := fyne.NewSize(116, 170)
 	l.Layout([]fyne.CanvasObject{a, b}, size)
 	// Content height is 170-16=154. Children take 20+30+4=54,
@@ -55,10 +55,22 @@ func TestBoxLayoutExpand(t *testing.T) {
 	}
 }
 
+func TestBoxLayoutFill(t *testing.T) {
+	a, b := newStub(100, 20), newStub(50, 30)
+	l := newBoxLayout(true, 8, 4, "start", []bool{false, false}, []bool{true, false})
+	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(116, 170))
+	if a.size.Width != 100 || a.size.Height != 20 {
+		t.Fatalf("fill child size = %v, want 100x20", a.size)
+	}
+	if b.pos.Y != 32 {
+		t.Fatalf("second child Y = %v, want 32", b.pos.Y)
+	}
+}
+
 func TestBoxLayoutSkipsHidden(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
 	a.Hide()
-	l := newBoxLayout(true, 0, 4, "start", []bool{false, false})
+	l := newBoxLayout(true, 0, 4, "start", []bool{false, false}, []bool{false, false})
 	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(50, 30))
 	if b.pos.Y != 0 {
 		t.Fatalf("visible child Y = %v, want 0", b.pos.Y)

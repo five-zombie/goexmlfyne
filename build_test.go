@@ -2,6 +2,7 @@ package goexml
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -231,16 +232,104 @@ func TestWindowFindSelectValue(t *testing.T) {
 	}
 }
 
-func TestBuildExampleFile(t *testing.T) {
-	data, err := os.ReadFile("examples/form.xml")
-	if err != nil {
-		t.Fatalf("reading example: %v", err)
-	}
-	root, err := Decode(data)
+func TestBuildStyle(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<vbox id="b"><label id="lbl" text="Hi" style="full-width p-2 pt-4"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	if _, err := Build(root, map[string]func(){"OnCancel": func() {}, "OnSave": func() {}}); err != nil {
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
+	}
+	box, ok := w.Content.(*fyne.Container)
+	if !ok {
+		t.Fatalf("content is %T, want *fyne.Container", w.Content)
+	}
+	wrap, ok := box.Objects[0].(*fyne.Container)
+	if !ok {
+		t.Fatalf("styled child is %T, want padded *fyne.Container", box.Objects[0])
+	}
+	if _, ok := w.Find("lbl").(*widget.Label); !ok {
+		t.Fatalf("Find(lbl) is %T, want *widget.Label", w.Find("lbl"))
+	}
+	box.Layout.Layout(box.Objects, fyne.NewSize(200, 100))
+	if wrap.Size().Width != 200 {
+		t.Fatalf("wrapper width = %v, want 200", wrap.Size().Width)
+	}
+	lbl := wrap.Objects[0]
+	if lbl.Position() != fyne.NewPos(8, 16) {
+		t.Fatalf("label pos = %v, want (8,16)", lbl.Position())
+	}
+	if lbl.Size().Width != 184 {
+		t.Fatalf("label width = %v, want 184", lbl.Size().Width)
+	}
+}
+
+func TestBuildMargin(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		`<vbox id="b"><label id="a" text="A" style="m-2"/><label id="c" text="C" style="p-1 m-1"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode returned error: %v", err)
+	}
+	w, err := Build(root, map[string]func(){})
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+	box := w.Content.(*fyne.Container)
+	marginWrap, ok := box.Objects[0].(*fyne.Container)
+	if !ok {
+		t.Fatalf("margin child is %T, want *fyne.Container", box.Objects[0])
+	}
+	if _, ok := w.Find("a").(*widget.Label); !ok {
+		t.Fatalf("Find(a) is %T, want *widget.Label", w.Find("a"))
+	}
+	box.Layout.Layout(box.Objects, fyne.NewSize(200, 100))
+	if marginWrap.Position() != fyne.NewPos(0, 0) {
+		t.Fatalf("margin wrapper pos = %v, want (0,0)", marginWrap.Position())
+	}
+	if lbl := marginWrap.Objects[0]; lbl.Position() != fyne.NewPos(8, 8) {
+		t.Fatalf("label pos = %v, want (8,8)", lbl.Position())
+	}
+	// Padding inside, margin outside: two nested wrappers.
+	both := box.Objects[1].(*fyne.Container)
+	innerPad, ok := both.Objects[0].(*fyne.Container)
+	if !ok {
+		t.Fatalf("margin wrapper child is %T, want padding *fyne.Container", both.Objects[0])
+	}
+	if lbl := innerPad.Objects[0]; lbl.Position() != fyne.NewPos(4, 4) {
+		t.Fatalf("padded label pos = %v, want (4,4)", lbl.Position())
+	}
+	if _, ok := w.Find("c").(*widget.Label); !ok {
+		t.Fatalf("Find(c) is %T, want *widget.Label", w.Find("c"))
+	}
+}
+
+func TestBuildExampleFiles(t *testing.T) {
+	files, err := filepath.Glob("examples/*.xml")
+	if err != nil {
+		t.Fatalf("listing examples: %v", err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no example files found")
+	}
+	handlers := map[string]func(){
+		"OnCancel": func() {}, "OnSave": func() {},
+		"OnPick": func() {}, "OnRow": func() {},
+	}
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatalf("reading example %s: %v", f, err)
+		}
+		root, err := Decode(data)
+		if err != nil {
+			t.Fatalf("Decode %s returned error: %v", f, err)
+		}
+		if _, err := Build(root, handlers); err != nil {
+			t.Fatalf("Build %s returned error: %v", f, err)
+		}
 	}
 }

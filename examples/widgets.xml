@@ -1,0 +1,17 @@
+<goexml version="0.1.0">
+  <window title="Widgets" size="800x600">
+    <vbox id="main" padding="8" spacing="4" align="start">
+      <label id="lblPick" text="Pick a city" />
+      <select id="kota" onChange="OnPick">
+        <option value="jkt" text="Jakarta" />
+        <option value="bdg" text="Bandung" selected="true" />
+        <option value="sby" text="Surabaya" />
+      </select>
+      <table id="users" onSelect="OnRow">
+        <row><cell text="Name" /><cell text="Age" /></row>
+        <row><cell text="Ann" /><cell text="30" /></row>
+        <row><cell text="Bo" /><cell text="25" /></row>
+      </table>
+    </vbox>
+  </window>
+</goexml>
