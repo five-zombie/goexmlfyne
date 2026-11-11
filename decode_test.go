@@ -253,3 +253,52 @@ func TestDecodeColorSizeNameNode(t *testing.T) {
 		t.Fatalf("size error %q does not name the node", err)
 	}
 }
+
+// Directives and processing instructions are rejected inside an
+// element instead of being silently dropped. The prolog keeps
+// accepting them (a leading <?xml ...?> is fine).
+func TestDecodeRejectsDirectiveAndPI(t *testing.T) {
+	for _, doc := range []string{
+		`<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<vbox id="b"><!DOCTYPE fool><label id="l" text="x"/></vbox></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<vbox id="b"><?php echo ?><label id="l" text="x"/></vbox></window></goexml>`,
+	} {
+		_, err := Decode([]byte(doc))
+		if err == nil {
+			t.Fatal("expected error for directive/PI inside an element, got nil")
+		}
+		if !strings.Contains(err.Error(), "not allowed inside an element") {
+			t.Fatalf("error %q does not reject the directive/PI", err)
+		}
+	}
+	root, err := Decode([]byte(`<?xml version="1.0"?>` +
+		`<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x"/></window></goexml>`))
+	if err != nil {
+		t.Fatalf("prolog PI should be accepted: %v", err)
+	}
+	if root.Children[0].Attr("title") != "x" {
+		t.Fatal("document with prolog PI did not decode")
+	}
+}
+
+// Syntax errors report one line number — the syntax error's own line —
+// and never the "inside:" pairing of two different lines.
+func TestDecodeSyntaxErrorSingleLine(t *testing.T) {
+	doc := "<goexml version=\"0.1.0\">\n  <window title=\"x\" size=\"1x1\">\n" +
+		"    <label id=\"a\" text=\"x\">\n  </vbox>\n</window></goexml>"
+	_, err := Decode([]byte(doc))
+	if err == nil {
+		t.Fatal("expected syntax error, got nil")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "inside:") {
+		t.Fatalf("syntax error %q still uses the inside: form", err)
+	}
+	if !strings.Contains(msg, "line 4: element <label> closed by </vbox>") {
+		t.Fatalf("syntax error %q does not use the syntax error's own line", err)
+	}
+	if strings.Count(msg, "line") != 1 {
+		t.Fatalf("syntax error %q carries more than one line number", err)
+	}
+}

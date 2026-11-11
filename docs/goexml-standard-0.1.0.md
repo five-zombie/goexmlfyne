@@ -208,5 +208,8 @@ rejected.
 - One file, one `window`.
 - Every widget has a unique `id` of letters, digits, and underscore.
 - Tags or attributes outside the lists are rejected by the parser.
+- Comments are allowed anywhere. Directives and processing
+  instructions are only allowed in the prolog; inside an element they
+  are rejected.
 - `onClick` is only a name; the function body stays in Go.
 - UTF-8 encoding; self-closing tags are allowed for leaves.

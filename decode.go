@@ -3,6 +3,7 @@ package goexml
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -34,7 +35,7 @@ func Decode(data []byte) (*Node, error) {
 			if err == io.EOF {
 				return nil, fmt.Errorf("goexml: line %d: document has no root element", lt.at(off))
 			}
-			return nil, fmt.Errorf("goexml: line %d: %v", lt.at(off), err)
+			return nil, syntaxErr(err, lt.at(off))
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
@@ -66,7 +67,7 @@ func Decode(data []byte) (*Node, error) {
 			if err == io.EOF {
 				return root, nil
 			}
-			return nil, fmt.Errorf("goexml: line %d: %v", lt.at(off), err)
+			return nil, syntaxErr(err, lt.at(off))
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
@@ -106,7 +107,7 @@ func parseElement(lt *lineTracker, d *xml.Decoder, start xml.StartElement, off i
 		coff := d.InputOffset()
 		tok, err := d.Token()
 		if err != nil {
-			return nil, nodeErr(n, "inside: %v", err)
+			return nil, syntaxErr(err, lt.at(off))
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
@@ -125,8 +126,17 @@ func parseElement(lt *lineTracker, d *xml.Decoder, start xml.StartElement, off i
 			body.WriteString(string(t))
 		case xml.Comment:
 			continue
+		case xml.Directive:
+			// Directives are only legal in the prolog; inside an
+			// element they are almost certainly misplaced.
+			return nil, nodeErr(n, "directives are not allowed inside an element")
+		case xml.ProcInst:
+			// Processing instructions are legal XML content, but the
+			// goexml standard has no use for them, so they are
+			// rejected rather than silently dropped.
+			return nil, nodeErr(n, "processing instructions are not allowed inside an element")
 		default:
-			continue
+			return nil, nodeErr(n, "unexpected token")
 		}
 	}
 }
@@ -158,6 +168,17 @@ func (lt *lineTracker) at(off int64) int {
 	lt.line += bytes.Count(lt.data[lt.off:off], []byte{'\n'})
 	lt.off = off
 	return lt.line
+}
+
+// syntaxErr reports a decoder error with a single line number: XML
+// syntax errors carry their own line, so that one is used as the only
+// line number instead of pairing it with the tracked token position.
+func syntaxErr(err error, line int) error {
+	var se *xml.SyntaxError
+	if errors.As(err, &se) {
+		return fmt.Errorf("goexml: line %d: %s", se.Line, se.Msg)
+	}
+	return fmt.Errorf("goexml: line %d: %v", line, err)
 }
 
 // nodeErr formats a node-scoped error, naming the element's id when it
