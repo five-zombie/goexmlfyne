@@ -4,23 +4,26 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 )
 
 // basePath is the directory relative Read paths resolve against.
-// Set it once at startup with BasePath. Absolute paths are never rewritten.
-var basePath string
+// It is stored atomically, so BasePath is safe to call while other
+// goroutines are inside Read.
+var basePath atomic.Value
 
 // BasePath sets the directory that Read prepends to relative paths,
-// e.g. BasePath("examples") then Read("form.xml").
+// e.g. BasePath("examples") then Read("form.xml"). Absolute paths are
+// never rewritten.
 func BasePath(dir string) {
-	basePath = dir
+	basePath.Store(dir)
 }
 
 // Read loads a goexml document from path and decodes it in one call.
 // Relative paths resolve against BasePath when one is set.
 func Read(path string) (*Node, error) {
-	if basePath != "" && !filepath.IsAbs(path) {
-		path = filepath.Join(basePath, path)
+	if bp, ok := basePath.Load().(string); ok && bp != "" && !filepath.IsAbs(path) {
+		path = filepath.Join(bp, path)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

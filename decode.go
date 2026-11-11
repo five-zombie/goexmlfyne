@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -197,6 +198,11 @@ func checkWindow(n *Node, ids map[string]int) error {
 	if len(n.Children) == 0 {
 		return nodeErr(n, "needs content")
 	}
+	if len(n.Children) > 1 {
+		// Multiple children would stack in an implicit, unconfigured
+		// box; the author makes that layout explicit instead.
+		return nodeErr(n, "needs exactly one child; wrap multiple children in a <vbox>")
+	}
 	for _, c := range n.Children {
 		if !widgets[c.Type] {
 			return nodeErr(c, "is not allowed inside <window>")
@@ -269,6 +275,11 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 			if err := checkAttrs(c, ids); err != nil {
 				return err
 			}
+			if len(c.Children) > 1 {
+				// Multiple region children would stack in an implicit,
+				// unconfigured box (see checkWindow).
+				return nodeErr(c, "needs at most one child; wrap multiple children in a <vbox>")
+			}
 			for _, g := range c.Children {
 				if !widgets[g.Type] {
 					return nodeErr(g, "is not allowed inside <%s>", c.Type)
@@ -314,7 +325,7 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
 		}
-		if _, _, _, err := parseHexColor(n.Attr("color"), n.Line); err != nil {
+		if _, _, _, err := parseHexColor(n, n.Attr("color")); err != nil {
 			return err
 		}
 	case "select":
@@ -412,10 +423,21 @@ func checkAttrs(n *Node, ids map[string]int) error {
 		return nodeErr(n, "text is not allowed")
 	}
 	allowed := allowedAttrs(n.Type)
+	var unknown []string
 	for name := range n.Attrs {
 		if !allowed[name] {
-			return nodeErr(n, "has no attribute %q", name)
+			unknown = append(unknown, name)
 		}
+	}
+	if len(unknown) > 0 {
+		// Map iteration order is random; sorting makes the message
+		// deterministic and names every offending attribute.
+		sort.Strings(unknown)
+		quoted := make([]string, len(unknown))
+		for i, a := range unknown {
+			quoted[i] = fmt.Sprintf("%q", a)
+		}
+		return nodeErr(n, "has no attribute %s", strings.Join(quoted, ", "))
 	}
 	if id := n.Attr("id"); id != "" {
 		if !idPattern.MatchString(id) {
@@ -458,14 +480,22 @@ func checkValues(n *Node) error {
 	default:
 		return nodeErr(n, "justify must be start, center, end, space-between, space-around or space-evenly, got %q", n.Attr("justify"))
 	}
-	if _, err := styles.ParseStyle(n.Attr("style")); err != nil {
+	st, err := styles.ParseStyle(n.Attr("style"))
+	if err != nil {
 		return nodeErr(n, "invalid style: %v", err)
+	}
+	// tableLayout never shrinks below the measured content size, so an
+	// exact height (or a fill height smaller than the content) would
+	// overflow the slot and overlap siblings. A table always sizes to
+	// its content.
+	if n.Type == "table" && (st.HFull || st.HasFixedH()) {
+		return nodeErr(n, "style h-* is not supported on a table; a table sizes to its content")
 	}
 	if n.Type == "window" {
 		if t := n.Attr("title"); t == "" {
 			return nodeErr(n, "needs a title attribute")
 		}
-		if _, _, err := parseSize(n.Attr("size"), n.Line); err != nil {
+		if _, _, err := parseSize(n, n.Attr("size")); err != nil {
 			return err
 		}
 	}
@@ -473,9 +503,9 @@ func checkValues(n *Node) error {
 }
 
 // parseHexColor parses a "#rrggbb" color.
-func parseHexColor(s string, line int) (r, g, b uint8, err error) {
+func parseHexColor(n *Node, s string) (r, g, b uint8, err error) {
 	bad := func() (uint8, uint8, uint8, error) {
-		return 0, 0, 0, fmt.Errorf("goexml: line %d: color must look like #2e2e2e, got %q", line, s)
+		return 0, 0, 0, nodeErr(n, "color must look like #2e2e2e, got %q", s)
 	}
 	if len(s) != 7 || s[0] != '#' {
 		return bad()
@@ -492,15 +522,15 @@ func parseHexColor(s string, line int) (r, g, b uint8, err error) {
 }
 
 // parseSize parses a "WxH" size such as "800x600".
-func parseSize(s string, line int) (w, h int, err error) {
+func parseSize(n *Node, s string) (w, h int, err error) {
 	parts := strings.Split(s, "x")
 	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("goexml: line %d: size must look like 800x600, got %q", line, s)
+		return 0, 0, nodeErr(n, "size must look like 800x600, got %q", s)
 	}
 	w, err1 := strconv.Atoi(parts[0])
 	h, err2 := strconv.Atoi(parts[1])
 	if err1 != nil || err2 != nil || w <= 0 || h <= 0 {
-		return 0, 0, fmt.Errorf("goexml: line %d: size must look like 800x600, got %q", line, s)
+		return 0, 0, nodeErr(n, "size must look like 800x600, got %q", s)
 	}
 	return w, h, nil
 }

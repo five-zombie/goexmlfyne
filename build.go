@@ -67,7 +67,7 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 	if len(w.Children) == 0 {
 		return nil, nodeErr(w, "needs content")
 	}
-	sw, sh, err := parseSize(w.Attr("size"), w.Line)
+	sw, sh, err := parseSize(w, w.Attr("size"))
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 	case "rect":
 		// Decode guarantees a valid color; invalid input here can only
 		// come from hand-built trees, so fall back to opaque black.
-		r, g, b, _ := parseHexColor(n.Attr("color"), n.Line)
+		r, g, b, _ := parseHexColor(n, n.Attr("color"))
 		return applyState(canvas.NewRectangle(color.NRGBA{R: r, G: g, B: b, A: 255}), n), nil
 	case "select":
 		name := n.Attr("onChange")

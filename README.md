@@ -22,7 +22,8 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
 
 ## Elements
 
-- `window`: one per file; `title` and `size` (e.g. `800x600`).
+- `window`: one per file; `title`, `size` (e.g. `800x600`), and exactly
+  one child — wrap multiple children in a `vbox` yourself.
 - `vbox`, `hbox`: vertical / horizontal containers with `padding`,
   `spacing`, `align`, and optional `justify`. A `vbox` with
   `column="grid"` becomes a responsive grid clamped by `min`/`max`.
@@ -43,7 +44,8 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
 - `table onSelect` with `<row><cell>` children: first row is the
   header. Wrapped in a sizing box so the header plus every data row
   stays visible; each column is sized to its widest cell. `Find(id)`
-  returns the `*widget.Table`.
+  returns the `*widget.Table`. Height style utilities (`h-full`,
+  `h-N`) are not supported: a table always sizes to its content.
 - `rect color="#rrggbb"`: a color box for lines and divider bands.
 - `cell text="..."` or `<cell>body</cell>`: same exclusive rule as
   `<text>`.

@@ -172,6 +172,10 @@ func TestDecodeRejects(t *testing.T) {
 		{"trailing text", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml>garbage`, "text outside root element"},
 		{"second root", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml><goexml version="0.1.0"><window title="y" size="1x1"><label id="b" text="y"/></window></goexml>`, "after root element"},
 		{"wrap names off", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><text id="t" wrap="wide">x</text></vbox></window></goexml>`, "word, break or off"},
+		{"table fixed height", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><table id="t" style="h-2"><row><cell text="A"/></row></table></vbox></window></goexml>`, "not supported on a table"},
+		{"table full height", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><table id="t" style="h-full"><row><cell text="A"/></row></table></vbox></window></goexml>`, "not supported on a table"},
+		{"window two children", `<goexml version="0.1.0"><window title="x" size="1x1"><rect id="a" color="#111111"/><rect id="b" color="#222222"/></window></goexml>`, "exactly one child"},
+		{"border region two children", `<goexml version="0.1.0"><window title="x" size="1x1"><border id="bd"><top><label id="a" text="a"/><label id="b" text="b"/></top><center><label id="c" text="c"/></center></border></window></goexml>`, "at most one child"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -206,5 +210,46 @@ func TestDecodeErrorNamesID(t *testing.T) {
 	_, err = Decode([]byte(doc))
 	if err == nil || !strings.Contains(err.Error(), "<option> is not allowed inside <vbox>") {
 		t.Fatalf("error %q does not use the plain <option> form", err)
+	}
+}
+
+// Unknown attributes are reported deterministically: sorted and all of
+// them, never one at random.
+func TestDecodeUnknownAttrsDeterministic(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<label id="a" text="x" zeta="1" alpha="2" mu="3"/></window></goexml>`
+	var first string
+	for i := 0; i < 50; i++ {
+		_, err := Decode([]byte(doc))
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if first == "" {
+			first = err.Error()
+		} else if err.Error() != first {
+			t.Fatalf("message changed across runs: %q vs %q", first, err)
+		}
+	}
+	for _, want := range []string{`"alpha"`, `"mu"`, `"zeta"`} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("message %q does not name %q", first, want)
+		}
+	}
+	if strings.Index(first, `"alpha"`) > strings.Index(first, `"zeta"`) {
+		t.Fatalf("message %q is not sorted", first)
+	}
+}
+
+// color and size errors carry the tag and id like every other error.
+func TestDecodeColorSizeNameNode(t *testing.T) {
+	_, err := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<rect id="r1" color="red"/></window></goexml>`))
+	if err == nil || !strings.Contains(err.Error(), `<rect id="r1"> color must look like`) {
+		t.Fatalf("color error %q does not name the node", err)
+	}
+	_, err = Decode([]byte(`<goexml version="0.1.0"><window title="x" size="bad">` +
+		`<rect id="r1" color="#2e2e2e"/></window></goexml>`))
+	if err == nil || !strings.Contains(err.Error(), `<window> size must look like`) {
+		t.Fatalf("size error %q does not name the node", err)
 	}
 }

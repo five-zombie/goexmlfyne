@@ -20,9 +20,11 @@ this format into Fyne widgets.
 ## Tags
 
 - `goexml`: root, requires `version="0.1.0"`.
-- `window`: one per file, `title`, `size`.
+- `window`: one per file, `title`, `size`, exactly one child — wrap
+  multiple children in a `vbox` yourself.
 - `vbox`, `hbox`: vertical and horizontal containers.
-- `border`: uses `top`, `bottom`, `left`, `right`, `center` children.
+- `border`: uses `top`, `bottom`, `left`, `right`, `center` children;
+  each region holds at most one child.
 - `label`: `text`.
 - `button`: `text`, `onClick`.
 - `entry`: `text`, `placeholder`.
@@ -32,7 +34,8 @@ this format into Fyne widgets.
   carrying any value is rejected. The UI shows `text`; `value` is kept
   for the value-reading API.
 - `table`: optional `onSelect`, only `<row>` children. The first row is
-  the header.
+  the header. Height style utilities (`h-full`, `h-N`) are not
+  supported on a table: a table always sizes to its content.
 - `row`: only `<cell>` children; every row must have the same number of
   cells.
 - `cell`: `text` or inner text — exactly one of the two.

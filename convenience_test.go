@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -25,6 +26,32 @@ func TestReadFile(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "missing.xml") {
 		t.Fatalf("error %q does not name the file", err)
 	}
+}
+
+// BasePath and Read are safe to use concurrently: the base path is
+// stored atomically, so -race sees no warning here.
+func TestReadBasePathConcurrent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "form.xml"), []byte(validDoc), 0o644); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	BasePath(dir)
+	defer BasePath("")
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 25; j++ {
+				if _, err := Read("form.xml"); err != nil {
+					t.Errorf("Read returned error: %v", err)
+					return
+				}
+				BasePath(dir)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestReadBasePath(t *testing.T) {
