@@ -3,7 +3,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"fyne.io/fyne/v2/app"
 
@@ -11,18 +10,16 @@ import (
 )
 
 func main() {
-	data, err := os.ReadFile("examples/form.xml")
+	goexml.BasePath("examples")
+	root, err := goexml.Read("form.xml")
 	if err != nil {
 		log.Fatalf("demo: %v", err)
 	}
-	root, err := goexml.Decode(data)
-	if err != nil {
-		log.Fatalf("demo: %v", err)
-	}
-	win, err := goexml.Build(root, map[string]func(){
-		"OnBatal":  func() { log.Println("demo: batal") },
-		"OnSimpan": func() { log.Println("demo: simpan") },
+	act := goexml.BuildAct(map[string]func(){
+		"OnCancel": func() { log.Println("demo: cancel") },
+		"OnSave":   func() { log.Println("demo: save") },
 	})
+	win, err := root.ApplyAct(act)
 	if err != nil {
 		log.Fatalf("demo: %v", err)
 	}

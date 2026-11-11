@@ -17,6 +17,27 @@ type Window struct {
 	Size fyne.Size
 	// Content is the root Fyne object to show.
 	Content fyne.CanvasObject
+	// byID maps widget ids to their built objects.
+	byID map[string]fyne.CanvasObject
+}
+
+// Find returns the built object for an XML id, or nil when absent.
+func (w *Window) Find(id string) fyne.CanvasObject {
+	return w.byID[id]
+}
+
+// SelectValue returns the current choice of a select widget.
+// It reports false when id is unknown or not a select.
+func (w *Window) SelectValue(id string) (string, bool) {
+	o, ok := w.byID[id]
+	if !ok {
+		return "", false
+	}
+	s, ok := o.(*widget.Select)
+	if !ok {
+		return "", false
+	}
+	return s.Selected, true
 }
 
 // Build renders a validated goexml root node into a Fyne window.
@@ -36,9 +57,10 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
+	reg := map[string]fyne.CanvasObject{}
 	var objs []fyne.CanvasObject
 	for _, c := range w.Children {
-		o, err := buildObject(c, tap)
+		o, err := buildObject(c, tap, reg)
 		if err != nil {
 			return nil, err
 		}
@@ -56,17 +78,31 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 		Title:   w.Attr("title"),
 		Size:    fyne.NewSize(float32(sw), float32(sh)),
 		Content: content,
+		byID:    reg,
 	}, nil
 }
 
-// buildObject renders one widget node into a Fyne object.
-func buildObject(n *Node, tap map[string]func()) (fyne.CanvasObject, error) {
+// buildObject renders one widget node into a Fyne object and
+// records it in reg under its XML id.
+func buildObject(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
+	o, err := buildWidget(n, tap, reg)
+	if err != nil {
+		return nil, err
+	}
+	if id := n.Attr("id"); id != "" {
+		reg[id] = o
+	}
+	return o, nil
+}
+
+// buildWidget renders one widget node into a Fyne object.
+func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
 	switch n.Type {
 	case "vbox", "hbox":
 		var objs []fyne.CanvasObject
 		var expand []bool
 		for _, c := range n.Children {
-			o, err := buildObject(c, tap)
+			o, err := buildObject(c, tap, reg)
 			if err != nil {
 				return nil, err
 			}
@@ -83,7 +119,7 @@ func buildObject(n *Node, tap map[string]func()) (fyne.CanvasObject, error) {
 		for _, r := range n.Children {
 			var objs []fyne.CanvasObject
 			for _, g := range r.Children {
-				o, err := buildObject(g, tap)
+				o, err := buildObject(g, tap, reg)
 				if err != nil {
 					return nil, err
 				}
@@ -132,6 +168,58 @@ func buildObject(n *Node, tap map[string]func()) (fyne.CanvasObject, error) {
 		}
 		e.PlaceHolder = n.Attr("placeholder")
 		return applyState(e, n), nil
+	case "select":
+		name := n.Attr("onChange")
+		fn, ok := tap[name]
+		if !ok {
+			return nil, fmt.Errorf("goexml: line %d: no handler for onChange %q", n.Line, name)
+		}
+		var options []string
+		selected := ""
+		for _, o := range n.Children {
+			options = append(options, o.Attr("text"))
+			if o.Attr("selected") == "true" {
+				selected = o.Attr("text")
+			}
+		}
+		s := widget.NewSelect(options, func(string) { fn() })
+		if selected != "" {
+			s.SetSelected(selected)
+		}
+		return applyState(s, n), nil
+	case "table":
+		var cols []string
+		for _, c := range n.Children[0].Children {
+			cols = append(cols, c.Attr("text"))
+		}
+		var rows [][]string
+		for _, r := range n.Children[1:] {
+			var row []string
+			for _, c := range r.Children {
+				row = append(row, c.Attr("text"))
+			}
+			rows = append(rows, row)
+		}
+		t := widget.NewTable(
+			func() (int, int) { return len(rows), len(cols) },
+			func() fyne.CanvasObject { return widget.NewLabel("") },
+			func(id widget.TableCellID, cell fyne.CanvasObject) {
+				cell.(*widget.Label).SetText(rows[id.Row][id.Col])
+			},
+		)
+		t.ShowHeaderRow = true
+		t.CreateHeader = func() fyne.CanvasObject { return widget.NewLabel("") }
+		t.UpdateHeader = func(id widget.TableCellID, cell fyne.CanvasObject) {
+			cell.(*widget.Label).SetText(cols[id.Col])
+		}
+		if name := n.Attr("onSelect"); name != "" {
+			fn, ok := tap[name]
+			if !ok {
+				return nil, fmt.Errorf("goexml: line %d: no handler for onSelect %q", n.Line, name)
+			}
+			t.OnSelected = func(widget.TableCellID) { fn() }
+		}
+		return applyState(t, n), nil
 	default:
 		return nil, fmt.Errorf("goexml: line %d: cannot build <%s>", n.Line, n.Type)
 	}

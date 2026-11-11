@@ -1,0 +1,45 @@
+package goexml
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// basePath is the directory relative Read paths resolve against.
+// Set it once at startup with BasePath. Absolute paths are never rewritten.
+var basePath string
+
+// BasePath sets the directory that Read prepends to relative paths,
+// e.g. BasePath("examples") then Read("form.xml").
+func BasePath(dir string) {
+	basePath = dir
+}
+
+// Read loads a goexml document from path and decodes it in one call.
+// Relative paths resolve against BasePath when one is set.
+func Read(path string) (*Node, error) {
+	if basePath != "" && !filepath.IsAbs(path) {
+		path = filepath.Join(basePath, path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("goexml: read %s: %w", path, err)
+	}
+	return Decode(data)
+}
+
+// Act maps handler names used in onClick, onChange and onSelect
+// attributes to Go functions. Build one with BuildAct.
+type Act map[string]func()
+
+// BuildAct wraps a handler map so it can be applied to a decoded tree.
+func BuildAct(handlers map[string]func()) Act {
+	return Act(handlers)
+}
+
+// ApplyAct renders the node into a Fyne window using the given handlers.
+// Act shares its underlying type with the handler map Build takes.
+func (n *Node) ApplyAct(act Act) (*Window, error) {
+	return Build(n, act)
+}

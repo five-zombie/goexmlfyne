@@ -194,6 +194,75 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		if len(n.Children) != 0 {
 			return fmt.Errorf("goexml: line %d: <entry> cannot have children", n.Line)
 		}
+	case "select":
+		if _, ok := n.Attrs["onChange"]; !ok {
+			return fmt.Errorf("goexml: line %d: <select> needs an onChange attribute", n.Line)
+		}
+		if len(n.Children) == 0 {
+			return fmt.Errorf("goexml: line %d: <select> needs at least one <option>", n.Line)
+		}
+		picked := 0
+		for _, o := range n.Children {
+			if o.Type != "option" {
+				return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <select>", o.Line, o.Type)
+			}
+			if err := checkAttrs(o, ids); err != nil {
+				return err
+			}
+			if len(o.Children) != 0 {
+				return fmt.Errorf("goexml: line %d: <option> cannot have children", o.Line)
+			}
+			if o.Attr("value") == "" {
+				return fmt.Errorf("goexml: line %d: <option> needs a value attribute", o.Line)
+			}
+			if o.Attr("text") == "" {
+				return fmt.Errorf("goexml: line %d: <option> needs a text attribute", o.Line)
+			}
+			if sel, ok := o.Attrs["selected"]; ok {
+				if sel != "true" {
+					return fmt.Errorf("goexml: line %d: <option> selected must be true, got %q", o.Line, sel)
+				}
+				picked++
+			}
+		}
+		if picked > 1 {
+			return fmt.Errorf("goexml: line %d: <select> allows only one selected <option>", n.Line)
+		}
+	case "table":
+		if len(n.Children) == 0 {
+			return fmt.Errorf("goexml: line %d: <table> needs at least one <row>", n.Line)
+		}
+		cols := -1
+		for _, r := range n.Children {
+			if r.Type != "row" {
+				return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <table>", r.Line, r.Type)
+			}
+			if err := checkAttrs(r, ids); err != nil {
+				return err
+			}
+			if len(r.Children) == 0 {
+				return fmt.Errorf("goexml: line %d: <row> needs at least one <cell>", r.Line)
+			}
+			for _, c := range r.Children {
+				if c.Type != "cell" {
+					return fmt.Errorf("goexml: line %d: <%s> is not allowed inside <row>", c.Line, c.Type)
+				}
+				if err := checkAttrs(c, ids); err != nil {
+					return err
+				}
+				if len(c.Children) != 0 {
+					return fmt.Errorf("goexml: line %d: <cell> cannot have children", c.Line)
+				}
+				if _, ok := c.Attrs["text"]; !ok {
+					return fmt.Errorf("goexml: line %d: <cell> needs a text attribute", c.Line)
+				}
+			}
+			if cols < 0 {
+				cols = len(r.Children)
+			} else if len(r.Children) != cols {
+				return fmt.Errorf("goexml: line %d: <row> has %d cells, want %d", r.Line, len(r.Children), cols)
+			}
+		}
 	default:
 		return fmt.Errorf("goexml: line %d: unknown element <%s> inside <%s>", n.Line, n.Type, parent)
 	}
@@ -202,10 +271,10 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 
 // checkAttrs rejects unknown attributes and tracks duplicate ids.
 func checkAttrs(n *Node, ids map[string]int) error {
-	allowed := allowedAttrs(n.Type)
-	if len(allowed) == 0 && n.Type != "" && !widgets[n.Type] && n.Type != "goexml" && n.Type != "window" && !regions[n.Type] {
+	if _, known := tagAttrs[n.Type]; !known {
 		return fmt.Errorf("goexml: line %d: unknown element <%s>", n.Line, n.Type)
 	}
+	allowed := allowedAttrs(n.Type)
 	for name := range n.Attrs {
 		if !allowed[name] {
 			return fmt.Errorf("goexml: line %d: <%s> has no attribute %q", n.Line, n.Type, name)

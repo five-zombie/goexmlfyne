@@ -24,18 +24,25 @@ var tagAttrs = map[string][]string{
 	"label":  {"text", "expand"},
 	"button": {"text", "onClick", "expand"},
 	"entry":  {"text", "placeholder", "expand"},
+	"select": {"onChange"},
+	"option": {"value", "text", "selected"},
+	"table":  {"onSelect"},
+	"row":    {},
+	"cell":   {"text"},
 }
 
 // withCommon lists the elements that accept common attributes.
 var withCommon = map[string]bool{
 	"vbox": true, "hbox": true, "border": true,
 	"label": true, "button": true, "entry": true,
+	"select": true, "table": true,
 }
 
 // idRequired lists the elements that must carry a unique id.
 var idRequired = map[string]bool{
 	"vbox": true, "hbox": true, "border": true,
 	"label": true, "button": true, "entry": true,
+	"select": true, "table": true,
 }
 
 // regions are the only valid children of a border element.
@@ -47,6 +54,7 @@ var regions = map[string]bool{
 var widgets = map[string]bool{
 	"vbox": true, "hbox": true, "border": true,
 	"label": true, "button": true, "entry": true,
+	"select": true, "table": true,
 }
 
 // allowedAttrs returns the full attribute set for a tag.
