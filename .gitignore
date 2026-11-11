@@ -1,4 +1,5 @@
 .knowledges/
+.sc/
 knl-config.json
 .agents/
 AGENTS.md
