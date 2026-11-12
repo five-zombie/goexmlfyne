@@ -6,7 +6,36 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/widget"
 )
+
+// ApplyActContents renders container documents through the one-line
+// convenience path; plain ApplyAct keeps rejecting them (Build requires
+// content for every slot).
+func TestApplyActContents(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<container id="page"><slot/></container></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if _, err := root.ApplyAct(BuildAct(nil)); err == nil ||
+		!strings.Contains(err.Error(), "slot must be filled") {
+		t.Fatalf("ApplyAct on a container document: err = %v", err)
+	}
+	w, err := root.ApplyActContents(BuildAct(nil), map[string]fyne.CanvasObject{
+		"page": widget.NewLabel("body"),
+	})
+	if err != nil {
+		t.Fatalf("ApplyActContents: %v", err)
+	}
+	c, ok := w.Find("page").(*Container)
+	if !ok || c.slot.Objects[0] == nil {
+		t.Fatal("ApplyActContents did not fill the slot")
+	}
+}
 
 func TestReadFile(t *testing.T) {
 	dir := t.TempDir()

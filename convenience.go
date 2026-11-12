@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+
+	"fyne.io/fyne/v2"
 )
 
 // basePath is the directory relative Read paths resolve against.
@@ -56,6 +58,15 @@ func BuildAct(handlers map[string]func()) Act {
 
 // ApplyAct renders the node into a Fyne window using the given handlers.
 // Act shares its underlying type with the handler map Build takes.
+// Documents with <container> need ApplyActContents instead: Build
+// requires content for every slot, so ApplyAct alone cannot render them.
 func (n *Node) ApplyAct(act Act) (*Window, error) {
 	return Build(n, act, nil)
+}
+
+// ApplyActContents renders the node like ApplyAct and additionally
+// supplies the slot contents for the document's containers, keyed by
+// container id — the same map Build takes.
+func (n *Node) ApplyActContents(act Act, contents map[string]fyne.CanvasObject) (*Window, error) {
+	return Build(n, act, contents)
 }

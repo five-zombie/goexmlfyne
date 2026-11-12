@@ -139,6 +139,11 @@ if err != nil {
     log.Fatal(err)
 }
 
+// Documents with <container> need the contents-aware variant:
+win, err := root.ApplyActContents(act, map[string]fyne.CanvasObject{
+    "page": bodyContent,
+})
+
 w := a.NewWindow(win.Title)
 w.Resize(win.Size)
 w.SetContent(win.Content)
