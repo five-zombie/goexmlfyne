@@ -44,5 +44,5 @@ func BuildAct(handlers map[string]func()) Act {
 // ApplyAct renders the node into a Fyne window using the given handlers.
 // Act shares its underlying type with the handler map Build takes.
 func (n *Node) ApplyAct(act Act) (*Window, error) {
-	return Build(n, act)
+	return Build(n, act, nil)
 }

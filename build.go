@@ -24,10 +24,42 @@ type Window struct {
 	Content fyne.CanvasObject
 	// byID maps widget ids to their built objects.
 	byID map[string]fyne.CanvasObject
+	// nodes maps ids to their XML nodes, so setters can dispatch by
+	// widget kind.
+	nodes map[string]*Node
+	// containers maps container ids to their built handle.
+	containers map[string]*Container
+	// templates maps ids to their raw {{placeholder}} template text.
+	templates map[string]string
 	// selectValues maps a select id to its option text-to-value table,
 	// so SelectValue can return the option value instead of the label.
 	selectValues map[string]map[string]string
+	// optionRaw stores a select's raw option labels when any of them
+	// carries a {{placeholder}} template.
+	optionRaw map[string][]optPair
+	// docIDs are the document's own ids: fragments must not collide
+	// with them, while fragment ids may replace each other across
+	// rebuilds (last one wins).
+	docIDs map[string]bool
+	// tap is the handler map Build received, reused by BuildItem.
+	tap map[string]func()
 }
+
+// buildCtx carries the shared state of one build pass.
+type buildCtx struct {
+	tap          map[string]func()
+	reg          map[string]fyne.CanvasObject
+	nodes        map[string]*Node
+	containers   map[string]*Container
+	templates    map[string]string
+	selectValues map[string]map[string]string
+	optionRaw    map[string][]optPair
+	slot         *fyne.Container // slot holder of the enclosing container
+}
+
+// optPair is one select option: its raw (possibly templated) label and
+// its value.
+type optPair struct{ raw, value string }
 
 // Find returns the built object for an XML id, or nil when absent.
 func (w *Window) Find(id string) fyne.CanvasObject {
@@ -55,8 +87,11 @@ func (w *Window) SelectValue(id string) (string, bool) {
 }
 
 // Build renders a validated goexml root node into a Fyne window.
-// Every onClick name in the document must have a handler in tap.
-func Build(root *Node, tap map[string]func()) (*Window, error) {
+// Every onClick name in the document must have a handler in tap. Every
+// <container> in the document must get its slot content from contents,
+// keyed by the container id; an unfilled slot or an unknown id is an
+// error.
+func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObject) (*Window, error) {
 	if root == nil || root.Type != "goexml" {
 		return nil, fmt.Errorf("goexml: root must be a <goexml> node")
 	}
@@ -71,26 +106,42 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	selVals := map[string]map[string]string{}
+	ctx := &buildCtx{
+		tap:          tap,
+		reg:          map[string]fyne.CanvasObject{},
+		nodes:        map[string]*Node{},
+		containers:   map[string]*Container{},
+		templates:    map[string]string{},
+		selectValues: map[string]map[string]string{},
+		optionRaw:    map[string][]optPair{},
+	}
 	var walk func(n *Node)
 	walk = func(n *Node) {
 		if n.Type == "select" {
 			m := map[string]string{}
+			var pairs []optPair
+			templated := false
 			for _, o := range n.Children {
 				m[o.Attr("text")] = o.Attr("value")
+				pairs = append(pairs, optPair{raw: o.Attr("text"), value: o.Attr("value")})
+				if strings.Contains(o.Attr("text"), "{{") {
+					templated = true
+				}
 			}
-			selVals[n.Attr("id")] = m
+			ctx.selectValues[n.Attr("id")] = m
+			if templated {
+				ctx.optionRaw[n.Attr("id")] = pairs
+			}
 		}
 		for _, c := range n.Children {
 			walk(c)
 		}
 	}
 	walk(w)
-	reg := map[string]fyne.CanvasObject{}
 	var objs []fyne.CanvasObject
 	var hints []childHint
 	for _, c := range w.Children {
-		o, err := buildObject(c, tap, reg)
+		o, err := buildObject(c, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -105,19 +156,122 @@ func Build(root *Node, tap map[string]func()) (*Window, error) {
 			newBoxLayout(true, 0, 4, "start", "start", hints), objs...,
 		)
 	}
-	return &Window{
+	win := &Window{
 		Title:        w.Attr("title"),
 		Size:         fyne.NewSize(float32(sw), float32(sh)),
 		Content:      content,
-		byID:         reg,
-		selectValues: selVals,
-	}, nil
+		byID:         ctx.reg,
+		nodes:        ctx.nodes,
+		containers:   ctx.containers,
+		templates:    ctx.templates,
+		selectValues: ctx.selectValues,
+		optionRaw:    ctx.optionRaw,
+		docIDs:       map[string]bool{},
+		tap:          tap,
+	}
+	var idWalk func(n *Node)
+	idWalk = func(n *Node) {
+		if id := n.Attr("id"); id != "" {
+			win.docIDs[id] = true
+		}
+		for _, c := range n.Children {
+			idWalk(c)
+		}
+	}
+	idWalk(root)
+	// Every container must be filled through the contents map — an
+	// unfilled slot would render as an invisible hole; an unknown key
+	// is almost certainly a typo in the Go side.
+	for id := range contents {
+		if _, ok := win.containers[id]; !ok {
+			return nil, fmt.Errorf("goexml: no container with id %q", id)
+		}
+	}
+	for id, c := range win.containers {
+		obj, ok := contents[id]
+		if !ok {
+			return nil, nodeErr(c.node, "slot must be filled")
+		}
+		c.SetContent(obj)
+	}
+	return win, nil
+}
+
+// BuildItem builds a decoded goexml-item fragment into a Fyne object,
+// registering its ids into this window's global id space. The fragment
+// must not collide with the document's own ids; ids of previously built
+// fragments are replaced, so pages can be rebuilt. Every container in
+// the fragment must get its content from contents, keyed by id.
+func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
+	if node == nil || node.Type != "goexml-item" {
+		return nil, fmt.Errorf("goexml: node must be a <goexml-item> root")
+	}
+	if len(node.Children) != 1 {
+		return nil, nodeErr(node, "must hold exactly one child")
+	}
+	var itemContainers []string
+	var pre func(n *Node) error
+	pre = func(n *Node) error {
+		if id := n.Attr("id"); id != "" {
+			if w.docIDs[id] {
+				return nodeErr(n, "id %q is already used by the document", id)
+			}
+			if n.Type == "container" {
+				itemContainers = append(itemContainers, id)
+			}
+		}
+		for _, c := range n.Children {
+			if err := pre(c); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := pre(node.Children[0]); err != nil {
+		return nil, err
+	}
+	ctx := &buildCtx{
+		tap:          w.tap,
+		reg:          w.byID,
+		nodes:        w.nodes,
+		containers:   w.containers,
+		templates:    w.templates,
+		selectValues: w.selectValues,
+		optionRaw:    w.optionRaw,
+	}
+	obj, err := buildObject(node.Children[0], ctx)
+	if err != nil {
+		return nil, err
+	}
+	for id := range contents {
+		if !slicesContain(itemContainers, id) {
+			return nil, fmt.Errorf("goexml: no container with id %q in the fragment", id)
+		}
+	}
+	for _, id := range itemContainers {
+		obj, ok := contents[id]
+		if !ok {
+			return nil, nodeErr(w.containers[id].node, "slot must be filled")
+		}
+		w.containers[id].SetContent(obj)
+	}
+	return obj, nil
+}
+
+// slicesContain reports whether s holds id.
+func slicesContain(s []string, id string) bool {
+	for _, v := range s {
+		if v == id {
+			return true
+		}
+	}
+	return false
 }
 
 // buildObject renders one widget node into a Fyne object and
-// records it in reg under its XML id.
-func buildObject(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
-	o, err := buildWidget(n, tap, reg)
+// records it in ctx.reg under its XML id.
+func buildObject(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
+	o, err := buildWidget(n, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -144,20 +298,63 @@ func buildObject(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		}
 	}
 	if id := n.Attr("id"); id != "" {
-		reg[id] = inner
+		ctx.reg[id] = inner
+		ctx.nodes[id] = n
+		switch n.Type {
+		case "label", "button", "entry":
+			if strings.Contains(n.Attr("text"), "{{") {
+				ctx.templates[id] = n.Attr("text")
+			}
+		case "text":
+			if strings.Contains(n.Attr("v"), "{{") {
+				ctx.templates[id] = n.Attr("v")
+			}
+		}
 	}
 	return o, nil
 }
 
 // buildWidget renders one widget node into a Fyne object.
-func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
+func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 	switch n.Type {
+	case "slot":
+		// The slot placeholder: zero size until SetContent fills it.
+		// Decode guarantees one slot per container; this guard keeps
+		// hand-built trees honest.
+		if ctx.slot != nil {
+			return nil, nodeErr(n, "duplicate slot in container")
+		}
+		holder := container.New(&holderLayout{})
+		ctx.slot = holder
+		return holder, nil
+	case "container":
+		if len(n.Children) != 1 {
+			return nil, nodeErr(n, "needs exactly one child")
+		}
+		prev := ctx.slot
+		ctx.slot = nil
+		obj, err := buildObject(n.Children[0], ctx)
+		slot := ctx.slot
+		ctx.slot = prev
+		if err != nil {
+			return nil, err
+		}
+		if slot == nil {
+			return nil, nodeErr(n, "needs exactly one <slot>")
+		}
+		c := &Container{
+			Container: container.New(&holderLayout{}, obj),
+			node:      n,
+			slot:      slot,
+		}
+		ctx.containers[n.Attr("id")] = c
+		return c, nil
 	case "vbox", "hbox":
 		vertical := n.Type == "vbox"
 		var objs []fyne.CanvasObject
 		var hints []childHint
 		for _, c := range n.Children {
-			o, err := buildObject(c, tap, reg)
+			o, err := buildObject(c, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -184,7 +381,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		for _, r := range n.Children {
 			var objs []fyne.CanvasObject
 			for _, g := range r.Children {
-				o, err := buildObject(g, tap, reg)
+				o, err := buildObject(g, ctx)
 				if err != nil {
 					return nil, err
 				}
@@ -240,7 +437,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		return applyState(l, n), nil
 	case "button":
 		name := n.Attr("onClick")
-		fn, ok := tap[name]
+		fn, ok := ctx.tap[name]
 		if !ok {
 			return nil, nodeErr(n, "no handler for onClick %q", name)
 		}
@@ -259,7 +456,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 		return applyState(canvas.NewRectangle(color.NRGBA{R: r, G: g, B: b, A: 255}), n), nil
 	case "select":
 		name := n.Attr("onChange")
-		fn, ok := tap[name]
+		fn, ok := ctx.tap[name]
 		if !ok {
 			return nil, nodeErr(n, "no handler for onChange %q", name)
 		}
@@ -324,7 +521,7 @@ func buildWidget(n *Node, tap map[string]func(), reg map[string]fyne.CanvasObjec
 			cell.(*widget.Label).SetText(cols[id.Col])
 		}
 		if name := n.Attr("onSelect"); name != "" {
-			fn, ok := tap[name]
+			fn, ok := ctx.tap[name]
 			if !ok {
 				return nil, nodeErr(n, "no handler for onSelect %q", name)
 			}

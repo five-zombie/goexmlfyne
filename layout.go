@@ -2,6 +2,29 @@ package goexml
 
 import "fyne.io/fyne/v2"
 
+// holderLayout backs a slot holder and a container wrapper: it measures
+// to its content's own MinSize (zero when empty) and lays the content
+// out to fill the holder's area. Style on the slot decides the area the
+// parent gives it; the injected object fills that area.
+type holderLayout struct{}
+
+func (holderLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	if len(objects) == 0 || objects[0] == nil {
+		return fyne.NewSize(0, 0)
+	}
+	return objects[0].MinSize()
+}
+
+func (holderLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	for _, o := range objects {
+		if o == nil {
+			continue
+		}
+		o.Move(fyne.NewPos(0, 0))
+		o.Resize(size)
+	}
+}
+
 // boxLayout stacks children in one direction with explicit padding,
 // spacing, cross-axis alignment and per-child expansion. It ignores
 // theme padding so goexml documents render the same on every platform.

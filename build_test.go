@@ -27,7 +27,7 @@ func buildValid(t *testing.T, tap map[string]func()) *Window {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, tap)
+	w, err := Build(root, tap, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestBuildUnknownHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	_, err = Build(root, map[string]func(){})
+	_, err = Build(root, map[string]func(){}, nil)
 	if err == nil || !strings.Contains(err.Error(), "no handler") {
 		t.Fatalf("expected no-handler error, got %v", err)
 	}
@@ -87,7 +87,7 @@ func TestBuildState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestBuildBorder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -134,12 +134,12 @@ func TestBuildSelectTable(t *testing.T) {
 		t.Fatalf("Decode returned error: %v", err)
 	}
 	picked := ""
-	_, err = Build(root, map[string]func(){})
+	_, err = Build(root, map[string]func(){}, nil)
 	if err == nil {
 		t.Fatal("expected no-handler error for missing OnPick, got nil")
 	}
 	pick := func() { picked = "yes" }
-	w, err := Build(root, map[string]func(){"OnPick": pick})
+	w, err := Build(root, map[string]func(){"OnPick": pick}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -184,11 +184,11 @@ func TestBuildTableSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	if _, err := Build(root, map[string]func(){}); err == nil {
+	if _, err := Build(root, map[string]func(){}, nil); err == nil {
 		t.Fatal("expected no-handler error for missing OnRow, got nil")
 	}
 	chosen := false
-	w, err := Build(root, map[string]func(){"OnRow": func() { chosen = true }})
+	w, err := Build(root, map[string]func(){"OnRow": func() { chosen = true }}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestBuildTableNoRows(t *testing.T) {
 			{Type: "table", Line: 3},
 		}},
 	}}
-	_, err := Build(root, map[string]func(){})
+	_, err := Build(root, map[string]func(){}, nil)
 	if err == nil || !strings.Contains(err.Error(), "needs at least one <row>") {
 		t.Fatalf("Build error = %v, want table row complaint", err)
 	}
@@ -238,7 +238,7 @@ func TestBuildTableRaggedCells(t *testing.T) {
 			}},
 		}},
 	}}
-	_, err := Build(root, map[string]func(){})
+	_, err := Build(root, map[string]func(){}, nil)
 	if err == nil || !strings.Contains(err.Error(), "has 1 cells, want 2") {
 		t.Fatalf("Build error = %v, want ragged row complaint", err)
 	}
@@ -255,7 +255,7 @@ func TestBuildFillTakesParentArea(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestBuildFillRespectsParentPadding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestBuildFixedHeightZeroSpacer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Decode %s returned error: %v", tc.style, err)
 		}
-		w, err := Build(root, map[string]func(){})
+		w, err := Build(root, map[string]func(){}, nil)
 		if err != nil {
 			t.Fatalf("Build %s returned error: %v", tc.style, err)
 		}
@@ -335,7 +335,7 @@ func TestBuildFixedHeightWrappers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Decode %s returned error: %v", tc.style, err)
 		}
-		w, err := Build(root, map[string]func(){})
+		w, err := Build(root, map[string]func(){}, nil)
 		if err != nil {
 			t.Fatalf("Build %s returned error: %v", tc.style, err)
 		}
@@ -371,7 +371,7 @@ func TestScrollWrapsTallContent(t *testing.T) {
 	w, err := Build(root, map[string]func(){
 		"OnCancel": func() {}, "OnSave": func() {}, "OnPick": func() {},
 		"OnRow": func() {}, "OnDemo": func() {},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestWindowFindSelectValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){"OnPick": func() {}})
+	w, err := Build(root, map[string]func(){"OnPick": func() {}}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestBuildStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestBuildMargin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -508,7 +508,7 @@ func TestBuildHBoxFullWidth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -531,7 +531,7 @@ func TestBuildGridStretchWins(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -551,7 +551,7 @@ func TestBuildGrid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -589,7 +589,7 @@ func TestBuildAlignVariants(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Decode %s returned error: %v", align, err)
 		}
-		w, err := Build(root, map[string]func(){})
+		w, err := Build(root, map[string]func(){}, nil)
 		if err != nil {
 			t.Fatalf("Build %s returned error: %v", align, err)
 		}
@@ -620,7 +620,7 @@ func TestBuildAlignVariants(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Decode %s returned error: %v", align, err)
 		}
-		w, err := Build(root, map[string]func(){})
+		w, err := Build(root, map[string]func(){}, nil)
 		if err != nil {
 			t.Fatalf("Build %s returned error: %v", align, err)
 		}
@@ -655,7 +655,7 @@ func TestBuildJustify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -677,7 +677,7 @@ func TestBuildRect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -715,7 +715,7 @@ func TestBuildTextElement(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Decode returned error: %v", err)
 			}
-			w, err := Build(root, map[string]func(){})
+			w, err := Build(root, map[string]func(){}, nil)
 			if err != nil {
 				t.Fatalf("Build returned error: %v", err)
 			}
@@ -741,7 +741,7 @@ func TestBuildWrapGrows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -765,7 +765,7 @@ func TestBuildTenThousandWords(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)
 	}
-	w, err := Build(root, map[string]func(){})
+	w, err := Build(root, map[string]func(){}, nil)
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -818,7 +818,7 @@ func TestBuildExampleFiles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Decode %s returned error: %v", f, err)
 		}
-		if _, err := Build(root, handlers); err != nil {
+		if _, err := Build(root, handlers, nil); err != nil {
 			t.Fatalf("Build %s returned error: %v", f, err)
 		}
 	}
