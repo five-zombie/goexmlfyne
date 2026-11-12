@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"go/token"
 	"os"
 	"path/filepath"
 	"sort"
@@ -121,6 +122,9 @@ func decodeAll(files []string) ([]funcInfo, error) {
 			return nil, fmt.Errorf("%s: %v", f, err)
 		}
 		name := funcName(f)
+		if !token.IsIdentifier(name) {
+			return nil, fmt.Errorf("%s: function name %q is not a valid Go identifier; rename the file (e.g. start with a letter)", f, name)
+		}
 		if used[name] {
 			return nil, fmt.Errorf("%s: function name %s is already used by another input file", f, name)
 		}
@@ -170,7 +174,9 @@ func checkIDs(file string, root *goexml.Node, ids map[string]string) error {
 
 // funcName derives a deterministic, exported Go name from a file name:
 // the base without .xml, split on non-alphanumeric runs, each segment
-// capitalized. page-body.xml -> PageBody.
+// capitalized. page-body.xml -> PageBody. The result is not guaranteed
+// to be a valid identifier (a file like 01-intro.xml yields "01Intro");
+// decodeAll rejects such files by name before any code is written.
 func funcName(file string) string {
 	base := strings.TrimSuffix(filepath.Base(file), ".xml")
 	var b strings.Builder

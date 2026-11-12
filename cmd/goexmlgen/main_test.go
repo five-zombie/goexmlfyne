@@ -123,3 +123,24 @@ func TestGenerateNonXMLInput(t *testing.T) {
 		t.Fatal("non-xml input accepted")
 	}
 }
+
+// File names that do not map to a valid Go identifier are rejected by
+// name, not by a confusing Go parser error after generation.
+func TestGenerateInvalidIdentifierNames(t *testing.T) {
+	for _, name := range []string{"01-intro.xml", "123.xml", "1page.xml", ".xml"} {
+		dir := t.TempDir()
+		in := writeFile(t, dir, name, docA)
+		err := run([]string{in}, filepath.Join(dir, "gen"), "gen")
+		if err == nil {
+			t.Fatalf("%s: accepted as if it were a valid function name", name)
+		}
+		if !strings.Contains(err.Error(), name) ||
+			!strings.Contains(err.Error(), "is not a valid Go identifier") {
+			t.Fatalf("%s: error %q does not name the file and the identifier problem", name, err)
+		}
+		// Nothing was written: the rejection happens before output.
+		if _, statErr := os.Stat(filepath.Join(dir, "gen", "goexmlgen.go")); !os.IsNotExist(statErr) {
+			t.Fatalf("%s: generated output written despite the rejection", name)
+		}
+	}
+}
