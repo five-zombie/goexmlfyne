@@ -115,29 +115,7 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 		selectValues: map[string]map[string]string{},
 		optionRaw:    map[string][]optPair{},
 	}
-	var walk func(n *Node)
-	walk = func(n *Node) {
-		if n.Type == "select" {
-			m := map[string]string{}
-			var pairs []optPair
-			templated := false
-			for _, o := range n.Children {
-				m[o.Attr("text")] = o.Attr("value")
-				pairs = append(pairs, optPair{raw: o.Attr("text"), value: o.Attr("value")})
-				if strings.Contains(o.Attr("text"), "{{") {
-					templated = true
-				}
-			}
-			ctx.selectValues[n.Attr("id")] = m
-			if templated {
-				ctx.optionRaw[n.Attr("id")] = pairs
-			}
-		}
-		for _, c := range n.Children {
-			walk(c)
-		}
-	}
-	walk(w)
+	registerSelects(w, ctx)
 	var objs []fyne.CanvasObject
 	var hints []childHint
 	for _, c := range w.Children {
@@ -239,6 +217,10 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (f
 		selectValues: map[string]map[string]string{},
 		optionRaw:    map[string][]optPair{},
 	}
+	// The fragment's selects join the window's value tables: without
+	// this walk SelectValue would silently return labels instead of
+	// values, and SetValue/SetValueFormat would reject valid options.
+	registerSelects(node.Children[0], ctx)
 	obj, err := buildObject(node.Children[0], ctx)
 	if err != nil {
 		return nil, err
@@ -287,6 +269,34 @@ func slicesContain(s []string, id string) bool {
 		}
 	}
 	return false
+}
+
+// registerSelects pre-walks a tree and fills ctx.selectValues and
+// ctx.optionRaw for every select, so SelectValue, SetValue and
+// SetValueFormat work on any build path — Build and BuildItem alike.
+// The select's value table lives here, not in buildWidget: the option
+// texts a fragment declares must join the document's id space the same
+// way a document's own options do.
+func registerSelects(n *Node, ctx *buildCtx) {
+	if n.Type == "select" {
+		m := map[string]string{}
+		var pairs []optPair
+		templated := false
+		for _, o := range n.Children {
+			m[o.Attr("text")] = o.Attr("value")
+			pairs = append(pairs, optPair{raw: o.Attr("text"), value: o.Attr("value")})
+			if strings.Contains(o.Attr("text"), "{{") {
+				templated = true
+			}
+		}
+		ctx.selectValues[n.Attr("id")] = m
+		if templated {
+			ctx.optionRaw[n.Attr("id")] = pairs
+		}
+	}
+	for _, c := range n.Children {
+		registerSelects(c, ctx)
+	}
 }
 
 // buildObject renders one widget node into a Fyne object and

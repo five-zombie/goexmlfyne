@@ -340,6 +340,58 @@ func TestBuildItemAtomic(t *testing.T) {
 	}
 }
 
+// A select inside a fragment joins the window's value tables like a
+// document select: SelectValue returns the value, SetValue switches by
+// value, and SetValueFormat renders templated option labels.
+func TestBuildItemSelect(t *testing.T) {
+	root, err := Decode([]byte(containerDoc("page")))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, map[string]func(){"P": func() {}}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	item, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox id="f">` +
+		`<select id="fsel" onChange="P"><option value="jkt" text="Jakarta"/>` +
+		`<option value="bdg" text="Bandung" selected=""/>` +
+		`<option value="bdg3" text="City {{c}}"/></select></vbox></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	if _, err := w.BuildItem(item, nil); err != nil {
+		t.Fatalf("BuildItem: %v", err)
+	}
+	// The value, not the label, comes back.
+	if got, ok := w.SelectValue("fsel"); got != "bdg" || !ok {
+		t.Fatalf("SelectValue = %q, %v; want \"bdg\", true", got, ok)
+	}
+	// Re-selecting by value works.
+	if err := w.SetValue("fsel", "jkt"); err != nil {
+		t.Fatalf("SetValue: %v", err)
+	}
+	if got, _ := w.SelectValue("fsel"); got != "jkt" {
+		t.Fatalf("SelectValue after SetValue = %q, want jkt", got)
+	}
+	// Templated option labels render and keep the value mapping.
+	if err := w.SetValueFormat("fsel", map[string]string{"c": "bdg"}); err != nil {
+		t.Fatalf("SetValueFormat: %v", err)
+	}
+	s := w.Find("fsel").(*widget.Select)
+	if len(s.Options) != 3 || s.Options[2] != "City bdg" {
+		t.Fatalf("options = %v, want a rendered City bdg", s.Options)
+	}
+	// The selection survived the render by value (jkt was set above).
+	if got, _ := w.SelectValue("fsel"); got != "jkt" {
+		t.Fatalf("SelectValue after render = %q, want jkt (selection preserved by value)", got)
+	}
+	// The rendered label maps to its declared value.
+	s.Selected = "City bdg"
+	if got, _ := w.SelectValue("fsel"); got != "bdg3" {
+		t.Fatalf("SelectValue on rendered label = %q, want bdg3", got)
+	}
+}
+
 // Rebuilding the same fragment replaces its ids and slot content: the
 // last built page wins, which is the rebuild-per-switch lifecycle.
 func TestFragmentRebuildOverwrite(t *testing.T) {
