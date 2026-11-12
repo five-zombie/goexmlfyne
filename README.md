@@ -139,15 +139,33 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Documents with <container> need the contents-aware variant:
-win, err := root.ApplyActContents(act, map[string]fyne.CanvasObject{
-    "page": bodyContent,
-})
-
 w := a.NewWindow(win.Title)
 w.Resize(win.Size)
 w.SetContent(win.Content)
 w.ShowAndRun()
+```
+
+For a document that uses `<container>`, build the body object first
+and use the contents-aware variant instead of `ApplyAct`:
+
+```go
+import (
+    "log"
+
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/widget"
+
+    "github.com/five-zombie/goexmlfyne"
+)
+
+bodyContent := widget.NewLabel("injected body")
+win, err := root.ApplyActContents(act, map[string]fyne.CanvasObject{
+    "page": bodyContent,
+})
+if err != nil {
+    log.Fatal(err)
+}
 ```
 
 ### Containers, fragments, and dynamic values
