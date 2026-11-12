@@ -232,3 +232,28 @@ rejected.
   `{{token}}` with letters, digits, and underscore is a valid
   placeholder; a malformed one is rejected at decode. There is no
   logic in XML.
+
+## Code generation
+
+The `goexmlgen` tool turns valid goexml files into Go source at build
+time, so the XML is part of the binary instead of a runtime asset:
+
+- `go generate` runs `cmd/goexmlgen` over the configured input
+  directory. Every `.xml` file (documents and `goexml-item` fragments)
+  is decoded and validated with the same parser the runtime uses.
+- Any XML error — syntax, unknown tag, orphan slot, nested container,
+  duplicate id, wrong version — fails the generation, so broken XML
+  becomes a compile error on the developer machine, with the original
+  file name and line.
+- The generated code only constructs `goexml.Node` trees: one
+  deterministic function per input file, named after the file. It is
+  backend-neutral — `Build` stays the only backend-aware step — and
+  each node keeps its original source line for runtime error messages.
+- Ids are checked for uniqueness across all input files of one
+  generation run: a fragment and its document cannot collide.
+- The generated code carries a "generated, do not edit" header. CI
+  regenerates and rejects any diff, so generated code is always
+  up to date.
+- Runtime decoding is unchanged: pages can still come from XML at
+  runtime. Generated nodes and runtime-decoded nodes are
+  interchangeable inputs to `Build` and `BuildItem`.
