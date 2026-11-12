@@ -3,7 +3,7 @@
 <goexml-item version="0.1.0">
   <vbox id="body" padding="4" spacing="4">
     <label id="greeting" text="Halo {{name}}, {{count}} pesan" />
-    <entry id="inpName" text="" placeholder="Who greets?" style="w-full" />
+    <entry id="inpGuest" text="" placeholder="Who greets?" style="w-full" />
     <button id="btnGreet" text="Greet" onClick="OnGreet" />
   </vbox>
 </goexml-item>

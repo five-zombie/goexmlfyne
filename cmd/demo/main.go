@@ -68,7 +68,7 @@ func buildPage(handlers map[string]func()) (*goexml.Window, error) {
 	// win is nil until Build returns, but handlers only fire later.
 	var win *goexml.Window
 	handlers["OnGreet"] = func() {
-		name, _ := win.Text("inpName")
+		name, _ := win.Text("inpGuest")
 		if name == "" {
 			name = "world"
 		}
