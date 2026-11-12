@@ -5,6 +5,10 @@ import (
 	"image/color"
 	"strconv"
 	"strings"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 )
 
 // This file owns the visual layer utilities: bg-[#rrggbb], the border
@@ -230,6 +234,22 @@ func (c Corners) Max() float32 {
 	return m
 }
 
+// applyTo writes the corner radii onto a Fyne rectangle. Uniform
+// radii go to the single CornerRadius field; mixed radii set only the
+// per-corner overrides, which keeps unset corners at zero whatever
+// rule the renderer prefers.
+func (c Corners) applyTo(r *canvas.Rectangle) {
+	if c.TL == c.TR && c.TR == c.BR && c.BR == c.BL {
+		r.CornerRadius = c.TL
+		return
+	}
+	r.CornerRadius = 0
+	r.TopLeftCornerRadius = c.TL
+	r.TopRightCornerRadius = c.TR
+	r.BottomRightCornerRadius = c.BR
+	r.BottomLeftCornerRadius = c.BL
+}
+
 // radiusDefault and radiusSizes are the named size table, kept on the
 // schema's 4 px grid (decision D2 of box-visual-plan).
 const radiusDefault = 4
@@ -359,4 +379,113 @@ func parseRadiusToken(v *Visual, tok string) (tier int, apply func(), handled bo
 	default:
 		return bad()
 	}
+}
+
+// NewVisual builds the visual layer behind obj: a filled rounded
+// rectangle for the background, border strokes, and the content on
+// top. Border widths are drawn inside the bounds, so the layer never
+// changes the content's size or position contract. A hidden obj
+// produces a hidden wrapper, like NewMargin, so parent box layouts
+// collapse the slot.
+func NewVisual(v Visual, obj fyne.CanvasObject) fyne.CanvasObject {
+	l := &visualLayout{v: v}
+	var layers []fyne.CanvasObject
+	anyR := v.Radius.Max() > 0
+	if v.HasBG {
+		r := canvas.NewRectangle(v.BG.NRGBA())
+		v.Radius.applyTo(r)
+		l.hasBG = true
+		layers = append(layers, r)
+	}
+	if v.hasC != 0 {
+		if anyR {
+			// Validation guarantees a uniform border here: one stroked
+			// rounded rectangle carries it.
+			b := canvas.NewRectangle(color.NRGBA{})
+			b.StrokeColor = v.C.Top.NRGBA()
+			b.StrokeWidth = v.BorderW.Top
+			v.Radius.applyTo(b)
+			l.stroke = true
+			layers = append(layers, b)
+		} else {
+			l.edges = true
+			// Per-side borders are thin filled rectangles, fully inside
+			// the bounds; undrawn sides get zero-size placeholders.
+			for _, s := range []struct {
+				m sideMask
+				c Color
+			}{{sideTop, v.C.Top}, {sideRight, v.C.Right}, {sideBottom, v.C.Bottom}, {sideLeft, v.C.Left}} {
+				layers = append(layers, canvas.NewRectangle(s.c.NRGBA()))
+			}
+		}
+	}
+	layers = append(layers, obj)
+	c := container.New(l, layers...)
+	if !obj.Visible() {
+		c.Hide()
+	}
+	return c
+}
+
+// visualLayout arranges the visual layer: canvas rects fill the whole
+// area behind the content, per-side border rects hug their edge, and
+// corner radii are clamped to half the smaller dimension so a radius
+// can never produce an undefined shape.
+type visualLayout struct {
+	v      Visual
+	hasBG  bool
+	stroke bool
+	edges  bool
+}
+
+func (l *visualLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	// The layer is inset: only the content contributes to min size.
+	return objects[len(objects)-1].MinSize()
+}
+
+func (l *visualLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	w, h := size.Width, size.Height
+	clamp := func(r float32) float32 {
+		half := min(w, h) / 2
+		if r > half {
+			return half
+		}
+		return r
+	}
+	clamped := Corners{
+		clamp(l.v.Radius.TL), clamp(l.v.Radius.TR),
+		clamp(l.v.Radius.BR), clamp(l.v.Radius.BL),
+	}
+	i := 0
+	if l.hasBG {
+		clamped.applyTo(objects[i].(*canvas.Rectangle))
+		objects[i].Move(fyne.NewPos(0, 0))
+		objects[i].Resize(size)
+		i++
+	}
+	if l.stroke {
+		clamped.applyTo(objects[i].(*canvas.Rectangle))
+		objects[i].Move(fyne.NewPos(0, 0))
+		objects[i].Resize(size)
+		i++
+	}
+	if l.edges {
+		edges := []struct {
+			m            sideMask
+			x, y, ew, eh float32
+		}{
+			{sideTop, 0, 0, w, l.v.BorderW.Top},
+			{sideRight, w - l.v.BorderW.Right, 0, l.v.BorderW.Right, h},
+			{sideBottom, 0, h - l.v.BorderW.Bottom, w, l.v.BorderW.Bottom},
+			{sideLeft, 0, 0, l.v.BorderW.Left, h},
+		}
+		for _, e := range edges {
+			objects[i].Move(fyne.NewPos(e.x, e.y))
+			objects[i].Resize(fyne.NewSize(e.ew, e.eh))
+			i++
+		}
+	}
+	content := objects[len(objects)-1]
+	content.Move(fyne.NewPos(0, 0))
+	content.Resize(size)
 }
