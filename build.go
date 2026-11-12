@@ -352,6 +352,11 @@ func buildObject(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 			o.Hide()
 		}
 	}
+	// The visual layer (bg/border/rounded) wraps the padded content:
+	// the background covers the whole box including its padding.
+	if st.Vis.Active() {
+		o = styles.NewVisual(st.Vis, o)
+	}
 	if !st.Margin.IsZero() {
 		o = styles.NewMargin(st.Margin, o)
 	}
