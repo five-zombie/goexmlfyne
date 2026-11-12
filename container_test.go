@@ -392,6 +392,73 @@ func TestBuildItemSelect(t *testing.T) {
 	}
 }
 
+// Rebuilds retire what the previous fragment contributed: a select
+// gone plain loses its optionRaw (SetValueFormat must reject), and ids
+// the new page no longer declares leave Find/Text for good.
+func TestBuildItemRetiresStaleState(t *testing.T) {
+	root, err := Decode([]byte(containerDoc("page")))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, map[string]func(){"P": func() {}}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	// Page 1: a templated select, a templated label, and a label that
+	// page 2 will drop.
+	page1, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox id="p1">` +
+		`<label id="gone" text="old"/>` +
+		`<label id="tl" text="{{x}}"/>` +
+		`<select id="s" onChange="P"><option value="pv" text="Plain"/>` +
+		`<option value="cv" text="City {{c}}"/></select></vbox></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	if _, err := w.BuildItem(page1, nil); err != nil {
+		t.Fatalf("BuildItem page1: %v", err)
+	}
+	// Page 2: same select and label ids, now plain; no "gone" label.
+	page2, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox id="p2">` +
+		`<label id="stay" text="new"/>` +
+		`<label id="tl" text="fixed"/>` +
+		`<select id="s" onChange="P"><option value="pv" text="Plain"/></select></vbox></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	if _, err := w.BuildItem(page2, nil); err != nil {
+		t.Fatalf("BuildItem page2: %v", err)
+	}
+	// Finding 1: a plain select has no template left to render.
+	if err := w.SetValueFormat("s", map[string]string{"c": "X"}); err == nil ||
+		!strings.Contains(err.Error(), `no {{placeholder}} template for id "s"`) {
+		t.Fatalf("stale optionRaw survived the rebuild: err = %v", err)
+	}
+	// Same root cause for text: a label that rebuilt plain must not
+	// inherit the previous page's text template.
+	if err := w.SetTextFormat("tl", map[string]string{"x": "Y"}); err == nil ||
+		!strings.Contains(err.Error(), `no {{placeholder}} template for id "tl"`) {
+		t.Fatalf("stale text template survived the rebuild: err = %v", err)
+	}
+	// The value table itself stays fresh: the rebuilt widget starts
+	// unselected, but its declared options resolve by value.
+	if err := w.SetValue("s", "pv"); err != nil {
+		t.Fatalf("SetValue: %v", err)
+	}
+	if got, _ := w.SelectValue("s"); got != "pv" {
+		t.Fatalf("SelectValue = %q, want pv (value table stays fresh)", got)
+	}
+	// Finding 2: ids the new page dropped are unreachable.
+	if w.Find("gone") != nil {
+		t.Fatal("retired fragment id still reachable via Find")
+	}
+	if _, err := w.Text("gone"); err == nil {
+		t.Fatal("retired fragment id still readable via Text")
+	}
+	if w.Find("stay") == nil {
+		t.Fatal("new fragment id not registered")
+	}
+}
+
 // Rebuilding the same fragment replaces its ids and slot content: the
 // last built page wins, which is the rebuild-per-switch lifecycle.
 func TestFragmentRebuildOverwrite(t *testing.T) {

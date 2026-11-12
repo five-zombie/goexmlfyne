@@ -41,6 +41,11 @@ type Window struct {
 	// with them, while fragment ids may replace each other across
 	// rebuilds (last one wins).
 	docIDs map[string]bool
+	// itemIDs are the ids contributed by the most recently built
+	// fragment. A rebuild retires the ids the new fragment no longer
+	// declares, so widgets, selects and templates of an old page never
+	// outlive it in Find/Text/SetValue.
+	itemIDs map[string]bool
 	// tap is the handler map Build received, reused by BuildItem.
 	tap map[string]func()
 }
@@ -145,6 +150,7 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 		selectValues: ctx.selectValues,
 		optionRaw:    ctx.optionRaw,
 		docIDs:       map[string]bool{},
+		itemIDs:      map[string]bool{},
 		tap:          tap,
 	}
 	var idWalk func(n *Node)
@@ -188,12 +194,14 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (f
 		return nil, nodeErr(node, "must hold exactly one child")
 	}
 	var itemContainers []string
+	fragIDs := map[string]bool{}
 	var pre func(n *Node) error
 	pre = func(n *Node) error {
 		if id := n.Attr("id"); id != "" {
 			if w.docIDs[id] {
 				return nodeErr(n, "id %q is already used by the document", id)
 			}
+			fragIDs[id] = true
 			if n.Type == "container" {
 				itemContainers = append(itemContainers, id)
 			}
@@ -237,9 +245,39 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (f
 		}
 		ctx.containers[id].SetContent(obj)
 	}
-	// The fragment built clean: merge its registrations into the
-	// window. Building went into temporary maps, so a failed BuildItem
-	// leaves no orphan ids behind — errors are side-effect free.
+	// The fragment built clean: retire the ids the previous fragment
+	// contributed that this fragment no longer declares — stale
+	// optionRaw tables, templates and orphan widgets never outlive
+	// their page. Ids both fragments share are re-merged below (last
+	// wins), keeping the rebuild-per-switch lifecycle.
+	for id := range w.itemIDs {
+		if !fragIDs[id] {
+			delete(w.byID, id)
+			delete(w.nodes, id)
+			delete(w.containers, id)
+			delete(w.templates, id)
+			delete(w.selectValues, id)
+			delete(w.optionRaw, id)
+		}
+	}
+	w.itemIDs = fragIDs
+	// Shared ids are not covered by the retirement above: a select or
+	// text that rebuilt plain must not inherit the previous page's
+	// optionRaw or template, so drop the per-id state the new fragment
+	// does not declare.
+	for id := range ctx.nodes {
+		if _, ok := ctx.templates[id]; !ok {
+			delete(w.templates, id)
+		}
+	}
+	for id := range ctx.selectValues {
+		if _, ok := ctx.optionRaw[id]; !ok {
+			delete(w.optionRaw, id)
+		}
+	}
+	// Merge the new fragment's registrations into the window. Building
+	// went into temporary maps, so a failed BuildItem leaves no orphan
+	// ids behind — errors are side-effect free.
 	for id, o := range ctx.reg {
 		w.byID[id] = o
 	}
