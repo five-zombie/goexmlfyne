@@ -15,6 +15,50 @@ func containerDoc(id string) string {
 		`</vbox></window></goexml>`
 }
 
+// visible="false" on a container is enforced like on any widget: the
+// container is hidden, and a padded wrapper hides with it.
+func TestContainerVisibleFalse(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<vbox id="b"><container id="page" visible="false" style="p-2"><slot/></container>` +
+		`<label id="after" text="after"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c, ok := w.Find("page").(*Container)
+	if !ok {
+		t.Fatalf("Find(%q) is %T, want *Container", "page", w.Find("page"))
+	}
+	if c.Visible() {
+		t.Fatal("container with visible=false is still visible")
+	}
+	// Fyne skips drawing the whole subtree of a hidden container; the
+	// children's own Visible flag stays true (the canvas walk stops at
+	// the hidden holder, same as widget.Box).
+	// Sibling visibility is untouched.
+	if !w.Find("after").Visible() {
+		t.Fatal("sibling of the hidden container got hidden too")
+	}
+	// The default stays visible.
+	doc = `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<container id="page"><slot/></container></window></goexml>`
+	root, err = Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err = Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if !w.Find("page").Visible() {
+		t.Fatal("container without visible is not visible")
+	}
+}
+
 // Build requires content for every container and injects it into the
 // slot; Find returns the *Container handle.
 func TestBuildContainerSlot(t *testing.T) {

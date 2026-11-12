@@ -348,7 +348,9 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 			slot:      slot,
 		}
 		ctx.containers[n.Attr("id")] = c
-		return c, nil
+		// Container is a widget like any other: visible, style padding
+		// and margin must not be accepted-then-dead attributes.
+		return applyState(c, n), nil
 	case "vbox", "hbox":
 		vertical := n.Type == "vbox"
 		var objs []fyne.CanvasObject
