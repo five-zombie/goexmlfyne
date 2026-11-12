@@ -64,7 +64,9 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   document's global id space. Build fragments with
   `(*Window).BuildItem`; a fragment id must not collide with the
   document's ids, while rebuilding a fragment replaces its ids and
-  slot content (the last built page wins).
+  slot content (the last built page wins): ids the new fragment no
+  longer declares become unreachable, and a widget that rebuilt plain
+  loses the previous page's templates.
 
 Every widget carries `id` (unique, `[A-Za-z0-9_]+`), `visible`
 (true/false), and — where Fyne supports it (`button`, `entry`,
@@ -112,43 +114,49 @@ set from Go by id — there is no logic in XML:
 ## Use
 
 ```go
+package main
+
 import (
     "log"
 
     "fyne.io/fyne/v2/app"
 
     "github.com/five-zombie/goexmlfyne"
+)
+
+func main() {
+    // Standard Fyne order: the app exists before any widget is built.
+    a := app.New()
+    goexml.BasePath("examples")
+
+    root, err := goexml.Read("form.xml")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    act := goexml.BuildAct(map[string]func(){
+        "OnCancel": func() { log.Println("cancel") },
+        "OnSave":   func() { log.Println("save") },
+    })
+
+    win, err := root.ApplyAct(act)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    w := a.NewWindow(win.Title)
+    w.Resize(win.Size)
+    w.SetContent(win.Content)
+    w.ShowAndRun()
 }
-
-// Standard Fyne order: the app exists before any widget is built.
-a := app.New()
-goexml.BasePath("examples")
-
-root, err := goexml.Read("form.xml")
-if err != nil {
-    log.Fatal(err)
-}
-
-act := goexml.BuildAct(map[string]func(){
-    "OnCancel": func() { log.Println("cancel") },
-    "OnSave":   func() { log.Println("save") },
-})
-
-win, err := root.ApplyAct(act)
-if err != nil {
-    log.Fatal(err)
-}
-
-w := a.NewWindow(win.Title)
-w.Resize(win.Size)
-w.SetContent(win.Content)
-w.ShowAndRun()
 ```
 
 For a document that uses `<container>`, build the body object first
 and use the contents-aware variant instead of `ApplyAct`:
 
 ```go
+package main
+
 import (
     "log"
 
@@ -159,12 +167,30 @@ import (
     "github.com/five-zombie/goexmlfyne"
 )
 
-bodyContent := widget.NewLabel("injected body")
-win, err := root.ApplyActContents(act, map[string]fyne.CanvasObject{
-    "page": bodyContent,
-})
-if err != nil {
-    log.Fatal(err)
+func main() {
+    a := app.New()
+    goexml.BasePath("examples")
+
+    root, err := goexml.Read("page.xml")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    act := goexml.BuildAct(nil)
+
+    // Build requires content for every <container> slot; unknown keys
+    // are errors.
+    win, err := root.ApplyActContents(act, map[string]fyne.CanvasObject{
+        "page": widget.NewLabel("injected body"),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    w := a.NewWindow(win.Title)
+    w.Resize(win.Size)
+    w.SetContent(win.Content)
+    w.ShowAndRun()
 }
 ```
 
