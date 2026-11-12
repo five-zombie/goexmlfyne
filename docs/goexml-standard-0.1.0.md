@@ -22,6 +22,19 @@ this format into Fyne widgets.
 - `goexml`: root, requires `version="0.1.0"`.
 - `window`: one per file, `title`, `size`, exactly one child — wrap
   multiple children in a `vbox` yourself.
+- `container`: an injection frame, requires `id`. It holds free design
+  (any widget) and **exactly one** `<slot>` somewhere in its subtree.
+  Containers never nest: a container must not be a descendant of a
+  container within one file. Multiple sibling containers are fine.
+- `slot`: the hole filled from Go. A leaf that accepts only `style`
+  (`w-*`, `h-N`, padding, margin); `Build` requires content for every
+  container id, and `SetContent` on the built `*Container` replaces the
+  slot's content. A slot outside any `<container>` is rejected.
+- `goexml-item`: the root of an injectable fragment, requires
+  `version="0.1.0"` — the fragment envelope. It holds **exactly one**
+  child widget (a window is not allowed inside); the same schema rules
+  apply, and its ids join the document's global id space. An item is
+  only legal as a fragment root, never nested anywhere.
 - `vbox`, `hbox`: vertical and horizontal containers.
 - `border`: uses `top`, `bottom`, `left`, `right`, `center` children;
   each region holds at most one child.
@@ -213,3 +226,9 @@ rejected.
   are rejected.
 - `onClick` is only a name; the function body stays in Go.
 - UTF-8 encoding; self-closing tags are allowed for leaves.
+- Dynamic values: static text stays in attributes; values that change
+  at runtime are set from Go by id (`SetText`, `SetValue`, and the
+  `{{placeholder}}` template renderers — see the library API). Only
+  `{{token}}` with letters, digits, and underscore is a valid
+  placeholder; a malformed one is rejected at decode. There is no
+  logic in XML.
