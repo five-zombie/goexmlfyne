@@ -49,6 +49,22 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
 - `rect color="#rrggbb"`: a color box for lines and divider bands.
 - `cell text="..."` or `<cell>body</cell>`: same exclusive rule as
   `<text>`.
+- `container id`: an injection frame. It holds free design (any
+  widget) and **exactly one** `<slot>` somewhere in its subtree.
+  Containers never nest within one file; siblings are fine, and
+  runtime composition through injection is unaffected.
+- `slot`: the hole filled from Go. A leaf that accepts only `style`
+  (`w-*`, `h-N`, padding, margin); its style decides the area it
+  gets, and the injected object stretches to fill that area. `Build`
+  requires content for every container id, and `SetContent` on the
+  built `*Container` replaces the slot's content.
+- `goexml-item`: the root of an injectable fragment, requires
+  `version="0.1.0"`. It holds **exactly one** child widget (no
+  window), the same schema rules apply, and its ids join the
+  document's global id space. Build fragments with
+  `(*Window).BuildItem`; a fragment id must not collide with the
+  document's ids, while rebuilding a fragment replaces its ids and
+  slot content (the last built page wins).
 
 Every widget carries `id` (unique, `[A-Za-z0-9_]+`), `visible`
 (true/false), and — where Fyne supports it (`button`, `entry`,
@@ -73,6 +89,25 @@ spirit of Tailwind:
 A tag carries at most one `w-*` and one `h-*` class. Unknown utilities
 are rejected by the parser. In a grid, the cell height is the row
 height: `h-N` only raises the row minimum.
+
+## Dynamic values
+
+Static text stays in XML attributes. Values that change at runtime are
+set from Go by id — there is no logic in XML:
+
+- `SetText(id, v)` sets the text of a `label`, `text`, `button` or
+  `entry`; `Text(id)` reads it back (an entry reflects what the user
+  typed).
+- `SetValue(id, v)` selects the `select` option carrying value `v`.
+- `{{token}}` placeholders (letters, digits, underscore) may appear in
+  the text attributes of `label`, `text`, `button`, `entry` and in
+  `option` labels. Malformed tokens are rejected at decode. Before the
+  first render the raw template shows.
+- `SetTextFormat(id, vals)` re-renders the template from its raw XML
+  text on every call. A plain `SetText` removes the template
+  registration — the last call wins.
+- `SetValueFormat(id, vals)` renders the option labels of a `select`
+  and updates its option list; the current selection is kept by value.
 
 ## Use
 
@@ -110,12 +145,42 @@ w.SetContent(win.Content)
 w.ShowAndRun()
 ```
 
+### Containers, fragments, and dynamic values
+
+```go
+// Build requires content for every <container> slot; unknown keys are
+// errors. The placeholder below is replaced before the window shows.
+win, err := goexml.Build(root, handlers, map[string]fyne.CanvasObject{
+    "page": widget.NewLabel(""),
+})
+
+// A goexml-item fragment joins the window's id space.
+item, err := goexml.ReadItem("page-body.xml")
+body, err := win.BuildItem(item, nil) // contents for fragment containers
+
+// Replace the slot content without touching the surrounding design.
+win.Find("page").(*goexml.Container).SetContent(body)
+
+// Dynamic values by id.
+win.SetText("head", "changed")                       // plain text
+win.SetTextFormat("greeting", map[string]string{     // {{name}} template
+    "name": "world", "count": "3",
+})
+name, _ := win.Text("inpName")                       // two-way entry
+win.SetValue("choice", "opt2")                       // select by value
+```
+
+The full runnable version is `cmd/demo` with `examples/page.xml` and
+`examples/page-body.xml`.
+
 ## Commands
 
 - `go build ./...` builds everything including the demo.
 - `go test ./...` runs the test suite.
 - `go run ./cmd/demo` runs the showcase with every widget (needs a display).
 - `go run ./cmd/demo form.xml` runs another file from `examples/`.
+- `go run ./cmd/demo page.xml` runs the container example: XML shell,
+  fragment injection, and `{{placeholder}}` templates.
 
 Requires Go 1.27. On Linux, Fyne needs a compiler and graphics
 headers, e.g. `gcc`, `libgl1-mesa-dev`, and `xorg-dev` on Debian/Ubuntu.

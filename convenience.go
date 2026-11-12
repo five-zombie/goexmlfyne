@@ -32,6 +32,19 @@ func Read(path string) (*Node, error) {
 	return Decode(data)
 }
 
+// ReadItem loads a goexml-item fragment from path and decodes it in
+// one call. Relative paths resolve against BasePath when one is set.
+func ReadItem(path string) (*Node, error) {
+	if bp, ok := basePath.Load().(string); ok && bp != "" && !filepath.IsAbs(path) {
+		path = filepath.Join(bp, path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("goexml: read %s: %w", path, err)
+	}
+	return DecodeItem(data)
+}
+
 // Act maps handler names used in onClick, onChange and onSelect
 // attributes to Go functions. Build one with BuildAct.
 type Act map[string]func()

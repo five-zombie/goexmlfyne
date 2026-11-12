@@ -807,19 +807,54 @@ func TestBuildExampleFiles(t *testing.T) {
 	handlers := map[string]func(){
 		"OnCancel": func() {}, "OnSave": func() {},
 		"OnPick": func() {}, "OnRow": func() {},
-		"OnDemo": func() {},
+		"OnDemo": func() {}, "OnGreet": func() {},
+	}
+	// fillContainers builds a contents map with a label for every
+	// container id in the tree.
+	fillContainers := func(root *Node) map[string]fyne.CanvasObject {
+		contents := map[string]fyne.CanvasObject{}
+		var walk func(n *Node)
+		walk = func(n *Node) {
+			if n.Type == "container" {
+				contents[n.Attr("id")] = widget.NewLabel("example body")
+			}
+			for _, c := range n.Children {
+				walk(c)
+			}
+		}
+		walk(root)
+		return contents
 	}
 	for _, f := range files {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatalf("reading example %s: %v", f, err)
 		}
-		root, err := Decode(data)
-		if err != nil {
-			t.Fatalf("Decode %s returned error: %v", f, err)
+		// Comments may precede the root, so route by trying the
+		// document envelope first and falling back to the fragment.
+		root, docErr := Decode(data)
+		if docErr == nil {
+			if _, err := Build(root, handlers, fillContainers(root)); err != nil {
+				t.Fatalf("Build %s returned error: %v", f, err)
+			}
+			continue
 		}
-		if _, err := Build(root, handlers, nil); err != nil {
-			t.Fatalf("Build %s returned error: %v", f, err)
+		item, itemErr := DecodeItem(data)
+		if itemErr != nil {
+			t.Fatalf("Decode %s returned error: %v", f, docErr)
+		}
+		// A fragment needs a host window to build into.
+		host, err := Decode([]byte(`<goexml version="0.1.0"><window title="host" size="1x1">` +
+			`<label id="hostlbl" text="x"/></window></goexml>`))
+		if err != nil {
+			t.Fatalf("host decode: %v", err)
+		}
+		w, err := Build(host, handlers, nil)
+		if err != nil {
+			t.Fatalf("host Build: %v", err)
+		}
+		if _, err := w.BuildItem(item, fillContainers(item)); err != nil {
+			t.Fatalf("BuildItem %s returned error: %v", f, err)
 		}
 	}
 }
