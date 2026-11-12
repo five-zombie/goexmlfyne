@@ -232,12 +232,12 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (f
 	}
 	ctx := &buildCtx{
 		tap:          w.tap,
-		reg:          w.byID,
-		nodes:        w.nodes,
-		containers:   w.containers,
-		templates:    w.templates,
-		selectValues: w.selectValues,
-		optionRaw:    w.optionRaw,
+		reg:          map[string]fyne.CanvasObject{},
+		nodes:        map[string]*Node{},
+		containers:   map[string]*Container{},
+		templates:    map[string]string{},
+		selectValues: map[string]map[string]string{},
+		optionRaw:    map[string][]optPair{},
 	}
 	obj, err := buildObject(node.Children[0], ctx)
 	if err != nil {
@@ -251,9 +251,30 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (f
 	for _, id := range itemContainers {
 		obj, ok := contents[id]
 		if !ok {
-			return nil, nodeErr(w.containers[id].node, "slot must be filled")
+			return nil, nodeErr(ctx.containers[id].node, "slot must be filled")
 		}
-		w.containers[id].SetContent(obj)
+		ctx.containers[id].SetContent(obj)
+	}
+	// The fragment built clean: merge its registrations into the
+	// window. Building went into temporary maps, so a failed BuildItem
+	// leaves no orphan ids behind — errors are side-effect free.
+	for id, o := range ctx.reg {
+		w.byID[id] = o
+	}
+	for id, n := range ctx.nodes {
+		w.nodes[id] = n
+	}
+	for id, c := range ctx.containers {
+		w.containers[id] = c
+	}
+	for id, t := range ctx.templates {
+		w.templates[id] = t
+	}
+	for id, m := range ctx.selectValues {
+		w.selectValues[id] = m
+	}
+	for id, p := range ctx.optionRaw {
+		w.optionRaw[id] = p
 	}
 	return obj, nil
 }

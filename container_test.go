@@ -296,6 +296,50 @@ func TestSiblingContainers(t *testing.T) {
 	}
 }
 
+// A failed BuildItem is side-effect free: no orphan id reaches the
+// window, so rejected fragments cannot corrupt the id space.
+func TestBuildItemAtomic(t *testing.T) {
+	root, err := Decode([]byte(containerDoc("page")))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	item, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox id="f">` +
+		`<label id="orphan" text="ghost"/><container id="fc"><slot/></container></vbox></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	if _, err := w.BuildItem(item, nil); err == nil ||
+		!strings.Contains(err.Error(), "slot must be filled") {
+		t.Fatalf("expected slot error, got %v", err)
+	}
+	if w.Find("orphan") != nil {
+		t.Fatal("failed BuildItem leaked an orphan widget id")
+	}
+	if _, err := w.Text("orphan"); err == nil {
+		t.Fatal("failed BuildItem left the orphan readable via Text")
+	}
+	if w.Find("fc") != nil {
+		t.Fatal("failed BuildItem leaked an orphan container id")
+	}
+	// The same fragment built with content still works afterwards:
+	// nothing from the failed attempt blocks the retry.
+	if _, err := w.BuildItem(item, map[string]fyne.CanvasObject{
+		"fc": widget.NewLabel("body"),
+	}); err != nil {
+		t.Fatalf("retry after failed BuildItem: %v", err)
+	}
+	if w.Find("orphan") == nil {
+		t.Fatal("successful retry did not register its ids")
+	}
+	if got := w.Find("fc").(*Container).slot.Objects[0]; got == nil {
+		t.Fatal("retry did not fill the fragment slot")
+	}
+}
+
 // Rebuilding the same fragment replaces its ids and slot content: the
 // last built page wins, which is the rebuild-per-switch lifecycle.
 func TestFragmentRebuildOverwrite(t *testing.T) {
