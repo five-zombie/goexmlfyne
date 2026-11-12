@@ -24,6 +24,20 @@
         <text id="r2" wrap="off">Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis.</text>
         <text id="r3" wrap="off">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint.</text>
       </vbox>
+      <hbox id="visuals" spacing="8" style="w-full">
+        <vbox id="card" style="bg-[#1e293b] rounded-xl p-2" spacing="2">
+          <label id="cardTitle" text="Card" />
+          <label id="cardBody" text="Rounded card, no border" />
+        </vbox>
+        <vbox id="panel" style="bg-[#0f172a] b-2 b-[#475569] rounded-md p-2" spacing="2">
+          <label id="panelTitle" text="Panel" />
+          <label id="panelBody" text="Rounded panel with a border" />
+        </vbox>
+        <vbox id="accent" style="b-1 bt-3 b-[#334155] bt-[#f59e0b] p-2" spacing="2">
+          <label id="accentTitle" text="Accent" />
+          <label id="accentBody" text="Uniform border, thick amber top" />
+        </vbox>
+      </hbox>
     </vbox>
   </window>
 </goexml>

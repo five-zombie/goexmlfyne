@@ -274,6 +274,64 @@ func Showcase() *goexml.Node {
 									},
 								},
 							},
+							&goexml.Node{
+								Type:  "hbox",
+								Line:  27,
+								Attrs: map[string]string{"id": "visuals", "spacing": "8", "style": "w-full"},
+								Children: []*goexml.Node{
+									&goexml.Node{
+										Type:  "vbox",
+										Line:  28,
+										Attrs: map[string]string{"id": "card", "spacing": "2", "style": "bg-[#1e293b] rounded-xl p-2"},
+										Children: []*goexml.Node{
+											&goexml.Node{
+												Type:  "label",
+												Line:  29,
+												Attrs: map[string]string{"id": "cardTitle", "text": "Card"},
+											},
+											&goexml.Node{
+												Type:  "label",
+												Line:  30,
+												Attrs: map[string]string{"id": "cardBody", "text": "Rounded card, no border"},
+											},
+										},
+									},
+									&goexml.Node{
+										Type:  "vbox",
+										Line:  32,
+										Attrs: map[string]string{"id": "panel", "spacing": "2", "style": "bg-[#0f172a] b-2 b-[#475569] rounded-md p-2"},
+										Children: []*goexml.Node{
+											&goexml.Node{
+												Type:  "label",
+												Line:  33,
+												Attrs: map[string]string{"id": "panelTitle", "text": "Panel"},
+											},
+											&goexml.Node{
+												Type:  "label",
+												Line:  34,
+												Attrs: map[string]string{"id": "panelBody", "text": "Rounded panel with a border"},
+											},
+										},
+									},
+									&goexml.Node{
+										Type:  "vbox",
+										Line:  36,
+										Attrs: map[string]string{"id": "accent", "spacing": "2", "style": "b-1 bt-3 b-[#334155] bt-[#f59e0b] p-2"},
+										Children: []*goexml.Node{
+											&goexml.Node{
+												Type:  "label",
+												Line:  37,
+												Attrs: map[string]string{"id": "accentTitle", "text": "Accent"},
+											},
+											&goexml.Node{
+												Type:  "label",
+												Line:  38,
+												Attrs: map[string]string{"id": "accentBody", "text": "Uniform border, thick amber top"},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
