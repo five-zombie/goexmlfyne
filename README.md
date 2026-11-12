@@ -92,6 +92,31 @@ A tag carries at most one `w-*` and one `h-*` class. Unknown utilities
 are rejected by the parser. In a grid, the cell height is the row
 height: `h-N` only raises the row minimum.
 
+## Visual style
+
+Boxes and widgets can carry a visual layer behind their content —
+background, border and rounded corners. The layer is drawn inside the
+element's bounds: it never moves or grows the content, and padding
+stays the inner spacing on top of it.
+
+- `bg-[#rrggbb]`: a solid background behind the whole element,
+  including its padding area.
+- `b-[#rrggbb]` sets the border color on all four sides;
+  `bt-`/`br-`/`bl-`/`bb-[#rrggbb]` per side. `b-N` sets the border
+  width on all four sides (0-16 px, direct pixels);
+  `bt-`/`br-`/`bl-`/`bb-N` per side. A side draws only when it has
+  both a width and a color — either alone is a decode error.
+- `rounded` is a 4 px radius on all corners; `rounded-md` 8 px,
+  `rounded-xl` 16 px, `rounded-N` N px (1-999). Per side:
+  `rounded-t-*`/`b`/`l`/`r`; per corner: `rounded-tl-*`/`tr`/`bl`/`br`.
+  A radius larger than half the element is clamped at render.
+- Rounded corners with a border require a uniform border (`b-` only):
+  a rounded stroke is one rectangle and cannot vary per side.
+
+Duplicate `bg-` tokens are an error. All combinations that would
+render nothing (a colorless width, a widthless color, `rounded`
+without a background or border) are decode errors.
+
 ## Dynamic values
 
 Static text stays in XML attributes. Values that change at runtime are
