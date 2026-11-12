@@ -173,6 +173,31 @@ win.SetValue("choice", "opt2")                       // select by value
 The full runnable version is `cmd/demo` with `examples/page.xml` and
 `examples/page-body.xml`.
 
+## Code generation
+
+`goexmlgen` turns goexml files into Go source that constructs
+`goexml.Node` trees, so the XML is validated at build time and ships
+inside the binary — no parsing at runtime:
+
+```sh
+go run ./cmd/goexmlgen -out gen -pkg gen examples
+```
+
+- Every `.xml` file (documents and `goexml-item` fragments) is decoded
+  with the same parser the runtime uses; any XML error fails the
+  generation with the original file name and line, so broken XML is a
+  compile error.
+- The output is one bundle, `gen/goexmlgen.go`, with one deterministic
+  function per input file named after it (`page-body.xml` →
+  `PageBody()`). Ids must be unique across all input files of a run.
+- Generated trees are backend-neutral and interchangeable with decoded
+  ones: `goexml.Build(gen.Page(), handlers, contents)` builds exactly
+  like a runtime-decoded page. Keep XML for pages that change at
+  runtime, generated nodes for the ones that don't — both in the same
+  window.
+- CI regenerates and rejects any diff, so generated code is always up
+  to date (see `gen/`, wired through `go:generate`).
+
 ## Commands
 
 - `go build ./...` builds everything including the demo.
@@ -181,6 +206,8 @@ The full runnable version is `cmd/demo` with `examples/page.xml` and
 - `go run ./cmd/demo form.xml` runs another file from `examples/`.
 - `go run ./cmd/demo page.xml` runs the container example: XML shell,
   fragment injection, and `{{placeholder}}` templates.
+- `go run ./cmd/goexmlgen -out gen -pkg gen examples` regenerates the
+  checked-in node trees in `gen/`.
 
 Requires Go 1.27. On Linux, Fyne needs a compiler and graphics
 headers, e.g. `gcc`, `libgl1-mesa-dev`, and `xorg-dev` on Debian/Ubuntu.
