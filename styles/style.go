@@ -18,6 +18,9 @@ type Style struct {
 	Pad Edges
 	// Margin is the outer spacing per side.
 	Margin Edges
+	// Vis is the parsed visual layer: background, border and rounded
+	// corners. Zero when no visual token appeared.
+	Vis Visual
 
 	// hasW and hasH record whether any w-*/h-* utility appeared,
 	// so duplicates are rejected even when the value parses to zero
@@ -64,11 +67,35 @@ func ParseStyle(s string) (Style, error) {
 			assigns = append(assigns, spacingAssign{tier, apply})
 			continue
 		}
+		if ok, err := parseBGToken(&st.Vis, tok); err != nil {
+			return Style{}, err
+		} else if ok {
+			continue
+		}
+		if tier, apply, ok, err := parseBorderToken(&st.Vis, tok); err != nil {
+			return Style{}, err
+		} else if ok {
+			assigns = append(assigns, spacingAssign{tier, apply})
+			continue
+		}
+		if tier, apply, ok, err := parseRadiusToken(&st.Vis, tok); err != nil {
+			return Style{}, err
+		} else if ok {
+			assigns = append(assigns, spacingAssign{tier, apply})
+			continue
+		}
 		return Style{}, fmt.Errorf("unknown style %q", tok)
 	}
 	sortAssigns(assigns)
 	for _, a := range assigns {
 		a.apply()
+	}
+	// The visual layer is validated as a whole: pairs and rounding
+	// rules see the merged result, not single tokens.
+	if st.Vis.Active() {
+		if err := st.Vis.validate(); err != nil {
+			return Style{}, err
+		}
 	}
 	return st, nil
 }
