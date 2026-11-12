@@ -13,31 +13,34 @@ var commonAttrs = []string{"id", "visible", "style"}
 // root, the window, and border region wrappers which take no
 // common attributes.
 var tagAttrs = map[string][]string{
-	"goexml": {},
-	"window": {"title", "size"},
-	"vbox":   {"padding", "spacing", "align", "justify", "column", "min", "max"},
-	"hbox":   {"padding", "spacing", "align", "justify"},
-	"border": {},
-	"top":    {},
-	"bottom": {},
-	"left":   {},
-	"right":  {},
-	"center": {},
-	"label":  {"text"},
-	"text":   {"v", "wrap"},
-	"button": {"text", "onClick", "disabled"},
-	"entry":  {"text", "placeholder", "disabled"},
-	"rect":   {"color"},
-	"select": {"onChange", "disabled"},
-	"option": {"value", "text", "selected"},
-	"table":  {"onSelect"},
-	"row":    {},
-	"cell":   {"text"},
+	"goexml":    {},
+	"window":    {"title", "size"},
+	"container": {},
+	"slot":      {"style"},
+	"vbox":      {"padding", "spacing", "align", "justify", "column", "min", "max"},
+	"hbox":      {"padding", "spacing", "align", "justify"},
+	"border":    {},
+	"top":       {},
+	"bottom":    {},
+	"left":      {},
+	"right":     {},
+	"center":    {},
+	"label":     {"text"},
+	"text":      {"v", "wrap"},
+	"button":    {"text", "onClick", "disabled"},
+	"entry":     {"text", "placeholder", "disabled"},
+	"rect":      {"color"},
+	"select":    {"onChange", "disabled"},
+	"option":    {"value", "text", "selected"},
+	"table":     {"onSelect"},
+	"row":       {},
+	"cell":      {"text"},
 }
 
 // withCommon lists the elements that accept common attributes.
 var withCommon = map[string]bool{
-	"vbox": true, "hbox": true, "border": true,
+	"container": true,
+	"vbox":      true, "hbox": true, "border": true,
 	"label": true, "button": true, "entry": true,
 	"select": true, "table": true, "rect": true,
 	"text": true,
@@ -45,7 +48,8 @@ var withCommon = map[string]bool{
 
 // idRequired lists the elements that must carry a unique id.
 var idRequired = map[string]bool{
-	"vbox": true, "hbox": true, "border": true,
+	"container": true,
+	"vbox":      true, "hbox": true, "border": true,
 	"label": true, "button": true, "entry": true,
 	"select": true, "table": true, "rect": true,
 	"text": true,
@@ -58,6 +62,7 @@ var regions = map[string]bool{
 
 // widgets are elements that render into Fyne objects.
 var widgets = map[string]bool{
+	"container": true, "slot": true,
 	"vbox": true, "hbox": true, "border": true,
 	"label": true, "button": true, "entry": true,
 	"select": true, "table": true, "rect": true,
@@ -75,7 +80,10 @@ func allowedAttrs(tag string) map[string]bool {
 			set[a] = true
 		}
 	}
-	if tag == "goexml" {
+	// Both envelopes are roots: goexml is the document root, goexml-item
+	// the fragment root. They are never legal as children, so they stay
+	// out of widgets, regions, and every child list.
+	if tag == "goexml" || tag == "goexml-item" {
 		set["version"] = true
 	}
 	return set
