@@ -302,3 +302,125 @@ func TestDecodeSyntaxErrorSingleLine(t *testing.T) {
 		t.Fatalf("syntax error %q carries more than one line number", err)
 	}
 }
+
+// container + slot decode rules: exactly one slot, no nesting, slots
+// only inside containers.
+func TestDecodeContainerSlot(t *testing.T) {
+	// Valid: container as window child, slot deep in the subtree.
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<container id="page"><vbox id="f"><label id="h" text="H"/><slot/><label id="ft" text="F"/></vbox></container>` +
+		`</window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("valid container rejected: %v", err)
+	}
+	if got := len(root.Children[0].Children); got != 1 {
+		t.Fatalf("container children = %d, want 1", got)
+	}
+
+	// Sibling containers are fine.
+	doc = `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<vbox id="b"><container id="a"><slot/></container><container id="c"><slot/></container></vbox>` +
+		`</window></goexml>`
+	if _, err := Decode([]byte(doc)); err != nil {
+		t.Fatalf("sibling containers rejected: %v", err)
+	}
+
+	for _, tc := range []struct{ name, doc, want string }{
+		{"nested container", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="outer"><container id="inner"><slot/></container></container></window></goexml>`,
+			"cannot be nested inside <container>"},
+		{"container deep in nested container", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="outer"><vbox id="f"><container id="inner"><slot/></container></vbox></container></window></goexml>`,
+			"cannot be nested inside <container>"},
+		{"zero slots", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="p"><vbox id="f"><label id="l" text="x"/></vbox></container></window></goexml>`,
+			"needs exactly one <slot>"},
+		{"two slots", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="p"><vbox id="f"><slot/><slot/></vbox></container></window></goexml>`,
+			"needs exactly one <slot>"},
+		{"orphan slot in window", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<slot/></window></goexml>`,
+			"only allowed inside a <container>"},
+		{"orphan slot in vbox", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<vbox id="b"><slot/></vbox></window></goexml>`,
+			"only allowed inside a <container>"},
+		{"container two children", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="p"><label id="a" text="a"/><label id="b" text="b"/></container></window></goexml>`,
+			"needs exactly one child"},
+		{"container without id", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container><slot/></container></window></goexml>`,
+			"needs an id"},
+	} {
+		_, err := Decode([]byte(tc.doc))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: error %q does not contain %q", tc.name, err, tc.want)
+		}
+	}
+}
+
+// DecodeItem validates the fragment envelope with the same schema rules.
+func TestDecodeItem(t *testing.T) {
+	// Valid: item root with one container child.
+	item := `<goexml-item version="0.1.0"><container id="body"><slot/></container></goexml-item>`
+	root, err := DecodeItem([]byte(item))
+	if err != nil {
+		t.Fatalf("valid fragment rejected: %v", err)
+	}
+	if root.Children[0].Type != "container" {
+		t.Fatalf("fragment child = %s, want container", root.Children[0].Type)
+	}
+
+	for _, tc := range []struct{ name, item, want string }{
+		{"document envelope", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml>`,
+			"fragment root must be <goexml-item>"},
+		{"two children", `<goexml-item version="0.1.0"><label id="a" text="a"/><label id="b" text="b"/></goexml-item>`,
+			"must hold exactly one child"},
+		{"window inside", `<goexml-item version="0.1.0"><window title="x" size="1x1"><label id="a" text="x"/></window></goexml-item>`,
+			"is not allowed inside <goexml-item>"},
+		{"wrong version", `<goexml-item version="0.2.0"><label id="a" text="x"/></goexml-item>`,
+			`unsupported version "0.2.0"`},
+		{"nested nesting rule applies", `<goexml-item version="0.1.0"><container id="o"><container id="i"><slot/></container></container></goexml-item>`,
+			"cannot be nested inside <container>"},
+	} {
+		_, err := DecodeItem([]byte(tc.item))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: error %q does not contain %q", tc.name, err, tc.want)
+		}
+	}
+}
+
+// Placeholder tokens in dynamic text attributes are validated at decode.
+func TestDecodePlaceholders(t *testing.T) {
+	// Valid tokens pass on label and text v.
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<vbox id="b"><label id="g" text="Halo {{name}}, {{n}}"/><text id="t" v="{{body}}"/></vbox></window></goexml>`
+	if _, err := Decode([]byte(doc)); err != nil {
+		t.Fatalf("valid placeholders rejected: %v", err)
+	}
+	for _, tc := range []struct{ name, doc, want string }{
+		{"unclosed", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<label id="g" text="Halo {{name"/></window></goexml>`,
+			"unclosed placeholder"},
+		{"bad token chars", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<label id="g" text="{{user name}}"/></window></goexml>`,
+			`invalid placeholder {{user name}}`},
+		{"empty token", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<label id="g" text="{{}}"/></window></goexml>`,
+			`invalid placeholder {{}}`},
+		{"entry text", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<entry id="e" text="{{x"/></window></goexml>`,
+			"unclosed placeholder"},
+		{"button text", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<button id="b" text="{{x" onClick="Go"/></window></goexml>`,
+			"unclosed placeholder"},
+		{"option text", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<select id="s" onChange="P"><option value="1" text="{{x"/></select></window></goexml>`,
+			"unclosed placeholder"},
+	} {
+		_, err := Decode([]byte(tc.doc))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: error %q does not contain %q", tc.name, err, tc.want)
+		}
+	}
+}

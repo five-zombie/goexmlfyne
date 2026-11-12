@@ -22,64 +22,119 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 // schema. It returns the root node. Every error carries the 1-based
 // source line of the offending element.
 func Decode(data []byte) (*Node, error) {
+	d, lt, start, off, err := openEnvelope(data)
+	if err != nil {
+		return nil, err
+	}
+	root, err := parseElement(lt, d, start, off)
+	if err != nil {
+		return nil, err
+	}
+	if err := validate(root); err != nil {
+		return nil, err
+	}
+	if err := finishTrailing(lt, d, root); err != nil {
+		return nil, err
+	}
+	return root, nil
+}
+
+// DecodeItem parses a goexml-item fragment: the injectable envelope
+// that holds exactly one child widget and has no window. The same
+// schema rules apply as for a document. The fragment's ids join the
+// document's global id space, which Build and BuildItem enforce.
+func DecodeItem(data []byte) (*Node, error) {
+	d, lt, start, off, err := openEnvelope(data)
+	if err != nil {
+		return nil, err
+	}
+	root, err := parseElement(lt, d, start, off)
+	if err != nil {
+		return nil, err
+	}
+	if root.Type != "goexml-item" {
+		return nil, fmt.Errorf("goexml: line %d: fragment root must be <goexml-item>, got <%s>", root.Line, root.Type)
+	}
+	if v := root.Attr("version"); v != Version {
+		return nil, nodeErr(root, "unsupported version %q, want %q", v, Version)
+	}
+	ids := map[string]int{}
+	if err := checkAttrs(root, ids); err != nil {
+		return nil, err
+	}
+	if len(root.Children) != 1 {
+		return nil, nodeErr(root, "must hold exactly one child widget; wrap multiple children in a <vbox>")
+	}
+	child := root.Children[0]
+	if !widgets[child.Type] {
+		return nil, nodeErr(child, "is not allowed inside <goexml-item>")
+	}
+	if err := checkWidget(child, "goexml-item", ids, false); err != nil {
+		return nil, err
+	}
+	if err := finishTrailing(lt, d, root); err != nil {
+		return nil, err
+	}
+	return root, nil
+}
+
+// openEnvelope strips the BOM, prepares the decoder, and seeks the
+// first element past the prolog. Both envelopes share it: the document
+// (goexml) and the fragment (goexml-item).
+func openEnvelope(data []byte) (d *xml.Decoder, lt *lineTracker, start xml.StartElement, off int64, err error) {
 	// A UTF-8 BOM is common from Windows editors; strip it instead of
 	// misreporting it as text outside the root element.
 	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
-	d := xml.NewDecoder(bytes.NewReader(data))
-	lt := newLineTracker(data)
-	var root *Node
-	for root == nil {
+	d = xml.NewDecoder(bytes.NewReader(data))
+	lt = newLineTracker(data)
+	for {
 		off := d.InputOffset()
-		tok, err := d.Token()
-		if err != nil {
-			if err == io.EOF {
-				return nil, fmt.Errorf("goexml: line %d: document has no root element", lt.at(off))
+		tok, terr := d.Token()
+		if terr != nil {
+			if terr == io.EOF {
+				return d, lt, start, off, fmt.Errorf("goexml: line %d: document has no root element", lt.at(off))
 			}
-			return nil, syntaxErr(err, lt.at(off))
+			return d, lt, start, off, syntaxErr(terr, lt.at(off))
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			r, err := parseElement(lt, d, t, off)
-			if err != nil {
-				return nil, err
-			}
-			if err := validate(r); err != nil {
-				return nil, err
-			}
-			root = r
+			return d, lt, t, off, nil
 		case xml.CharData:
 			if strings.TrimSpace(string(t)) != "" {
-				return nil, fmt.Errorf("goexml: line %d: text outside root element", lt.at(off))
+				return d, lt, start, off, fmt.Errorf("goexml: line %d: text outside root element", lt.at(off))
 			}
 		case xml.Comment, xml.ProcInst, xml.Directive:
 			continue
 		default:
-			return nil, fmt.Errorf("goexml: line %d: unexpected token", lt.at(off))
+			return d, lt, start, off, fmt.Errorf("goexml: line %d: unexpected token", lt.at(off))
 		}
 	}
-	// Anything after the root must be trailing whitespace or comments;
-	// a second element or stray text means the document was cut short
-	// or two documents were glued together.
+}
+
+// finishTrailing rejects anything but whitespace and comments after the
+// root: a second element or stray text means the document was cut short
+// or two documents were glued together.
+func finishTrailing(lt *lineTracker, d *xml.Decoder, root *Node) error {
 	for {
 		off := d.InputOffset()
 		tok, err := d.Token()
 		if err != nil {
 			if err == io.EOF {
-				return root, nil
+				return nil
 			}
-			return nil, syntaxErr(err, lt.at(off))
+			return syntaxErr(err, lt.at(off))
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			return nil, fmt.Errorf("goexml: line %d: unexpected <%s> after root element", lt.at(off), t.Name.Local)
+			return fmt.Errorf("goexml: line %d: unexpected <%s> after root element", lt.at(off), t.Name.Local)
 		case xml.CharData:
 			if strings.TrimSpace(string(t)) != "" {
-				return nil, fmt.Errorf("goexml: line %d: text outside root element", lt.at(off))
+				return fmt.Errorf("goexml: line %d: text outside root element", lt.at(off))
 			}
 		case xml.Comment, xml.ProcInst, xml.Directive:
 			continue
 		default:
-			return nil, fmt.Errorf("goexml: line %d: unexpected token", lt.at(off))
+			return fmt.Errorf("goexml: line %d: unexpected token", lt.at(off))
 		}
 	}
 }
@@ -228,7 +283,7 @@ func checkWindow(n *Node, ids map[string]int) error {
 		if !widgets[c.Type] {
 			return nodeErr(c, "is not allowed inside <window>")
 		}
-		if err := checkWidget(c, "window", ids); err != nil {
+		if err := checkWidget(c, "window", ids, false); err != nil {
 			return err
 		}
 	}
@@ -236,11 +291,36 @@ func checkWindow(n *Node, ids map[string]int) error {
 }
 
 // checkWidget validates one widget element in the context of its parent.
-func checkWidget(n *Node, parent string, ids map[string]int) error {
+// inContainer marks that an ancestor <container> encloses this subtree:
+// slots are only legal there, and a nested container is rejected.
+func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) error {
 	if err := checkAttrs(n, ids); err != nil {
 		return err
 	}
+	switch {
+	case n.Type == "container" && inContainer:
+		// One container is one injection unit; nesting would blur who
+		// owns which slot. Siblings stay fine, and runtime composition
+		// through injection is unaffected: the rule is per file.
+		return nodeErr(n, "cannot be nested inside <container>")
+	case n.Type == "slot" && !inContainer:
+		// A slot outside a container has no owner to fill it — exactly
+		// the "accepted then dead" pattern this parser rejects.
+		return nodeErr(n, "is only allowed inside a <container>")
+	}
 	switch n.Type {
+	case "container":
+		if len(n.Children) != 1 {
+			return nodeErr(n, "needs exactly one child; wrap multiple children in a <vbox>")
+		}
+		if got := countSlots(n); got != 1 {
+			return nodeErr(n, "needs exactly one <slot> in its subtree, got %d", got)
+		}
+		return checkWidget(n.Children[0], "container", ids, true)
+	case "slot":
+		if len(n.Children) != 0 {
+			return nodeErr(n, "cannot have children")
+		}
 	case "vbox", "hbox":
 		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {
 			return nodeErr(n, "unknown column mode %q, want grid on vbox", mode)
@@ -276,7 +356,7 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 			if !widgets[c.Type] {
 				return nodeErr(c, "is not allowed inside <%s>", n.Type)
 			}
-			if err := checkWidget(c, n.Type, ids); err != nil {
+			if err := checkWidget(c, n.Type, ids, inContainer); err != nil {
 				return err
 			}
 		}
@@ -305,7 +385,7 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 				if !widgets[g.Type] {
 					return nodeErr(g, "is not allowed inside <%s>", c.Type)
 				}
-				if err := checkWidget(g, c.Type, ids); err != nil {
+				if err := checkWidget(g, c.Type, ids, inContainer); err != nil {
 					return err
 				}
 			}
@@ -314,12 +394,18 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		if _, ok := n.Attrs["text"]; !ok {
 			return nodeErr(n, "needs a text attribute")
 		}
+		if err := checkPlaceholders(n, n.Attr("text")); err != nil {
+			return err
+		}
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
 		}
 	case "button":
 		if _, ok := n.Attrs["text"]; !ok {
 			return nodeErr(n, "needs a text attribute")
+		}
+		if err := checkPlaceholders(n, n.Attr("text")); err != nil {
+			return err
 		}
 		if _, ok := n.Attrs["onClick"]; !ok {
 			return nodeErr(n, "needs an onClick attribute")
@@ -338,7 +424,13 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		case v == "" && n.Text == "":
 			return nodeErr(n, "needs text: v attribute or inner text")
 		}
+		if err := checkPlaceholders(n, v); err != nil {
+			return err
+		}
 	case "entry":
+		if err := checkPlaceholders(n, n.Attr("text")); err != nil {
+			return err
+		}
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
 		}
@@ -373,6 +465,9 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 			}
 			if o.Attr("text") == "" {
 				return nodeErr(o, "needs a text attribute")
+			}
+			if err := checkPlaceholders(o, o.Attr("text")); err != nil {
+				return err
 			}
 			if prev, dup := texts[o.Attr("text")]; dup {
 				return nodeErr(o, "duplicate option text %q, first seen on line %d", o.Attr("text"), prev)
@@ -431,6 +526,43 @@ func checkWidget(n *Node, parent string, ids map[string]int) error {
 		return nodeErr(n, "unknown element inside <%s>", parent)
 	}
 	return checkValues(n)
+}
+
+// countSlots counts slot elements in a container subtree. The
+// anti-nesting rule guarantees they all belong to this container.
+func countSlots(n *Node) int {
+	c := 0
+	if n.Type == "slot" {
+		c++
+	}
+	for _, ch := range n.Children {
+		c += countSlots(ch)
+	}
+	return c
+}
+
+// checkPlaceholders validates {{token}} placeholders in a dynamic text
+// attribute: every {{ opens a token of letters, digits and underscore
+// closed by }}. An unclosed or malformed group is rejected here, not
+// silently rendered as literal text.
+func checkPlaceholders(n *Node, s string) error {
+	for i := 0; i < len(s); {
+		open := strings.Index(s[i:], "{{")
+		if open < 0 {
+			return nil
+		}
+		i += open
+		close := strings.Index(s[i+2:], "}}")
+		if close < 0 {
+			return nodeErr(n, "unclosed placeholder %q, want {{token}}", s[i:])
+		}
+		tok := s[i+2 : i+2+close]
+		if !idPattern.MatchString(tok) {
+			return nodeErr(n, "invalid placeholder {{%s}}, want letters, digits or _", tok)
+		}
+		i += close + 4
+	}
+	return nil
 }
 
 // checkAttrs rejects unknown attributes and tracks duplicate ids.
