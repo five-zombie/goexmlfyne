@@ -203,3 +203,92 @@ func TestWindowTemplates(t *testing.T) {
 		t.Fatalf("SelectValue after render = %q, want 1", got)
 	}
 }
+
+// The slot is a style-only leaf: its h-N decides the area the parent
+// gives it, and the injected content stretches to fill that area.
+func TestSlotHeightStyle(t *testing.T) {
+	root, err := Decode([]byte(containerDoc("page")))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	body := widget.NewLabel("body")
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": body})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	// Lay out once: heights only settle after the parent lays out.
+	w.Content.Resize(w.Size)
+	c := w.Find("page").(*Container)
+	// h-2 = 2*4 px, exactly like any other styled leaf.
+	if got := c.slot.Size().Height; got != 8 {
+		t.Fatalf("slot height = %v, want 8 (h-2)", got)
+	}
+	if got := c.slot.Objects[0].Size().Height; got != 8 {
+		t.Fatalf("slot content height = %v, want 8 (content fills the slot)", got)
+	}
+}
+
+// Sibling containers are independent injection units in one window.
+func TestSiblingContainers(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<vbox id="b"><container id="head"><vbox id="wh"><label id="h" text="H"/><slot/></vbox></container>` +
+		`<container id="body"><vbox id="wb"><label id="f" text="F"/><slot/></vbox></container></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	head, body := widget.NewLabel("head"), widget.NewLabel("body")
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{
+		"head": head, "body": body,
+	})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if got := w.Find("head").(*Container).slot.Objects[0]; got != head {
+		t.Fatal("head slot does not hold its content")
+	}
+	if got := w.Find("body").(*Container).slot.Objects[0]; got != body {
+		t.Fatal("body slot does not hold its content")
+	}
+}
+
+// Rebuilding the same fragment replaces its ids and slot content: the
+// last built page wins, which is the rebuild-per-switch lifecycle.
+func TestFragmentRebuildOverwrite(t *testing.T) {
+	root, err := Decode([]byte(containerDoc("page")))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	itemSrc := `<goexml-item version="0.1.0"><container id="c1"><vbox id="f">` +
+		`<label id="lbl" text="v1"/><slot/></vbox></container></goexml-item>`
+	item1, err := DecodeItem([]byte(itemSrc))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	if _, err := w.BuildItem(item1, map[string]fyne.CanvasObject{"c1": widget.NewLabel("p1")}); err != nil {
+		t.Fatalf("BuildItem 1: %v", err)
+	}
+	if got, _ := w.Text("lbl"); got != "v1" {
+		t.Fatalf("first build text = %q, want v1", got)
+	}
+	// Same fragment source, built again: ids are re-registered, not
+	// rejected, and the new content replaces the old.
+	item2, err := DecodeItem([]byte(itemSrc))
+	if err != nil {
+		t.Fatalf("DecodeItem 2: %v", err)
+	}
+	second := widget.NewLabel("p2")
+	if _, err := w.BuildItem(item2, map[string]fyne.CanvasObject{"c1": second}); err != nil {
+		t.Fatalf("BuildItem 2: %v", err)
+	}
+	if got, _ := w.Text("lbl"); got != "v1" {
+		t.Fatalf("rebuilt fragment text = %q, want v1 (fresh widget)", got)
+	}
+	if got := w.Find("c1").(*Container).slot.Objects[0]; got != second {
+		t.Fatal("rebuilt fragment slot does not hold the new content")
+	}
+}
