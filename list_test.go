@@ -276,6 +276,25 @@ func TestListItemSetters(t *testing.T) {
 	if it.UnfilledImages() != nil {
 		t.Fatalf("UnfilledImages after fill = %v, want none", it.UnfilledImages())
 	}
+
+	// After Clear, every setter is an explicit error - including the
+	// wrappers this test exists for.
+	feed.Clear()
+	for _, tc := range []struct {
+		name string
+		call func() error
+	}{
+		{"SetValue", func() error { return it.SetValue("pick", "a") }},
+		{"SetValueFormat", func() error { return it.SetValueFormat("pick", map[string]string{"x": "3"}) }},
+		{"SetImageRes", func() error { return it.SetImageRes("thumb", fyne.NewStaticResource("t.png", listPng())) }},
+	} {
+		if err := tc.call(); err == nil || !strings.Contains(err.Error(), "cleared") {
+			t.Fatalf("%s on a cleared item: error %q does not retire the item", tc.name, err)
+		}
+	}
+	if v, ok := it.SelectValue("pick"); v != "" || ok {
+		t.Fatalf("SelectValue on a cleared item = %q, %v; want empty, false", v, ok)
+	}
 }
 
 // TestListNonScrollable locks the plain box variant: same handle, no
