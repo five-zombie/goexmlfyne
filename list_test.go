@@ -167,6 +167,9 @@ func TestListAppend(t *testing.T) {
 	if first.Find("rowTitle") != nil {
 		t.Fatal("Find on a cleared item returned widgets")
 	}
+	if got := withSlot.UnfilledImages(); got != nil {
+		t.Fatalf("UnfilledImages on a cleared item = %v, want nil", got)
+	}
 	// The list still works after a clear.
 	again, err := feed.Append(frag, map[string]fyne.CanvasObject{
 		"rowSlot": widget.NewLabel("fresh"),

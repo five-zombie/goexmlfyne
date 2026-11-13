@@ -245,7 +245,11 @@ func (i *Item) SetImageRes(id string, res fyne.Resource) error {
 }
 
 // UnfilledImages on an item: the slot images this item still misses,
-// so an append-time audit mirrors the window's.
+// so an append-time audit mirrors the window's. A cleared item has
+// nothing left to audit, like its Find returning nil.
 func (i *Item) UnfilledImages() []string {
+	if i.retired {
+		return nil
+	}
 	return i.widgetScope.UnfilledImages()
 }
