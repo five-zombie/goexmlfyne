@@ -47,13 +47,17 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   returns the `*widget.Table`. Height style utilities (`h-full`,
   `h-N`) are not supported: a table always sizes to its content.
 - `rect color="#rrggbb"`: a color box for lines and divider bands.
-- `image src fit?`: a picture from the build's resource set — `src`
-  names a registered resource (never a file path or URL; an unknown
-  key or undecodable bytes fail the build). `fit` is `contain`
-  (default), `cover` or `fill`. Without size style an image is as
-  large as its pixels; `h-*` and `w-*` size it like any leaf. The
-  visual layer draws behind the pixels (rounded does not clip them).
-  `SetImage(id, key)` swaps the resource at runtime.
+- `image src? fit?`: a picture. With `src`, it names a registered
+  resource from the build's resource set (never a file path or URL;
+  an unknown key or undecodable bytes fail the build). Without `src`
+  it is a runtime-filled slot: the build leaves it empty, and the app
+  must fill it before showing — `SetImage(id, key)` resolves a key
+  from the resource set, `SetImageRes(id, res)` attaches fetched
+  bytes directly, and `UnfilledImages()` reports slot images still
+  unfilled. `fit` is `contain` (default), `cover` or `fill`. Without
+  size style a filled image is as large as its pixels; `h-*` and
+  `w-*` size it like any leaf. The visual layer draws behind the
+  pixels (rounded does not clip them).
 - `cell text="..."` or `<cell>body</cell>`: same exclusive rule as
   `<text>`.
 - `container id`: an injection frame. It holds free design (any

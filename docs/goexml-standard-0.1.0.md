@@ -11,9 +11,11 @@ this format into Fyne widgets.
 >
 > **Second amendment, 13 November 2026 (still version 0.1.0):** the leaf
 > element **`image`** joins the schema: `src` names a resource the runtime
-> registers (never a file path or URL), `fit` is `contain` (default),
-> `cover` or `fill`. The visual layer applies behind the pixels; rounded
-> corners do not clip them. See the Tags list.
+> registers (never a file path or URL) and is validated at build when
+> present; without `src` the image is a runtime-filled slot that must be
+> filled before showing. `fit` is `contain` (default), `cover` or `fill`.
+> The visual layer applies behind the pixels; rounded corners do not clip
+> them. See the Tags list.
 
 ## Minimal example
 
@@ -72,15 +74,20 @@ this format into Fyne widgets.
 - `rect`: a color box `color="#rrggbb"`, for lines and divider bands so
   padding, margin, and alignment are visible to the eye.
 - `image`: a picture from the runtime's registered resource set.
-  `src` names a resource key (letters, digits, dot, dash, slash,
-  underscore — never a file path or URL, never a template); `fit` is
-  `contain` (default), `cover` or `fill`. The build fails on an
-  unknown key or undecodable bytes — no image ever renders as a
-  silent empty box. Without size style the image is as large as its
-  pixels; the dimension utilities size it like any leaf (`h-*` is
-  allowed, unlike on a table), and the visual layer draws behind the
-  pixels (rounded corners do not clip them). `SetImage(id, key)`
-  swaps the resource at runtime.
+  `src` optionally names a resource key (letters, digits, dot, dash,
+  slash, underscore — never a file path or URL, never a template);
+  `fit` is `contain` (default), `cover` or `fill`. With `src`, the
+  build fails on an unknown key or undecodable bytes — no image ever
+  renders as a silent empty box. Without `src`, the image is a
+  runtime-filled slot: it renders empty until the runtime fills it
+  (like a container slot), and the runtime must fill it before
+  showing and can audit leftovers. Without size style a filled image
+  is as large as its pixels; the dimension utilities size it like any
+  leaf (`h-*` is allowed, unlike on a table), and the visual layer
+  draws behind the pixels (rounded corners do not clip them). The
+  runtime can fill or swap the resource by id at runtime (see the
+  implementation's image setters); unknown keys and undecodable bytes
+  are rejected there too.
 
 ## Attributes on every widget
 
