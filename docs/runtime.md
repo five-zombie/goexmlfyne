@@ -25,11 +25,12 @@ func BuildAct(handlers map[string]func()) Act
   unfilled slot or an unknown key fails the build.
 - `resources` holds the named image payloads `<image src>` resolves
   against; a missing key or undecodable bytes fail the build. `nil`
-  normalizes to an empty live set: an app that fills slot images at
-  runtime adds to it through `win.SetImageRes(id, res)` (or swaps
-  named keys with `win.SetImage(id, key)`) — the set itself is
+  normalizes to an empty live set: an app registers a payload by
+  putting it in that map, and `win.SetImage(id, key)` resolves it —
+  `win.SetImageRes(id, res)` is the other path, attaching bytes to
+  one image directly without touching the set. The set itself is
   internal to the library, so external code reaches it only through
-  these setters.
+  these two setters.
 - `ApplyAct*` are the same three steps chained on a decoded tree; a
   document with `<container>` needs `ApplyActContents` or
   `ApplyActResources`.

@@ -29,7 +29,7 @@ children rules and value formats. This is the reference for what
 | `vbox-expand` | `spacing`, `align`, `justify`, `column`, `min`, `max`, `scrollable` | **none** — items come from Go |
 | `border` | — | regions only |
 | `top` / `bottom` / `left` / `right` / `center` | — | at most one widget each |
-| `container` | — (`id` required) | exactly one widget + exactly one `<slot>` |
+| `container` | — (`id` required) | exactly one child whose subtree holds exactly one `<slot>` |
 | `slot` | `style` (dimension utilities only) | none — a leaf hole filled by Go; exactly one per `container` |
 
 Notes:
@@ -64,8 +64,8 @@ Notes:
 - `image` — with `src`, the key must exist in the build's resource set
   and its bytes must decode as an image. Without `src`, the image is a
   runtime-filled slot and requires an `id`. `fit` is `contain`
-  (default), `cover` or `fill`. Key rules in [style.md](style.md) for
-  the visual layer, lifecycle in [runtime.md](runtime.md).
+  (default), `cover` or `fill`. The visual layer's rules are in
+  [style.md](style.md), the image lifecycle in [runtime.md](runtime.md).
 
 ## Common attributes
 
