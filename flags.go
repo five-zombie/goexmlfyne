@@ -1,5 +1,7 @@
 package goexml
 
+import "bytes"
+
 // flagAttrs lists the schema's flag attributes: the ones whose mere
 // presence means true. XML has no value-less attributes, so a bare
 // flag cannot survive the parser — patchFlags rewrites it to ="true"
@@ -14,13 +16,42 @@ var flagAttrs = map[string]bool{
 	"selected":   true,
 }
 
+// verbatimEnd reports the end (exclusive) of the verbatim block that
+// starts at data[i] == '<': a comment (-->), a CDATA section (]]>),
+// a processing instruction (?>), or another <! declaration (>). It
+// returns 0 when data[i:] starts none of those or the block never
+// terminates (the caller then copies the rest verbatim).
+func verbatimEnd(data []byte, i int) int {
+	rest := data[i:]
+	var marker string
+	var closer string
+	switch {
+	case bytes.HasPrefix(rest, []byte("<!--")):
+		marker, closer = "<!--", "-->"
+	case bytes.HasPrefix(rest, []byte("<![CDATA[")):
+		marker, closer = "<![CDATA[", "]]>"
+	case bytes.HasPrefix(rest, []byte("<?")):
+		marker, closer = "<?", "?>"
+	case bytes.HasPrefix(rest, []byte("<!")):
+		marker, closer = "<!", ">"
+	default:
+		return 0
+	}
+	rel := bytes.Index(rest[len(marker):], []byte(closer))
+	if rel < 0 {
+		return len(data)
+	}
+	return i + len(marker) + rel + len(closer)
+}
+
 // patchFlags copies data verbatim except for bare flag attributes
-// inside start tags, which gain ="true". The scanner tracks quoted
-// attribute values wholesale — an attribute value may legally contain
-// > or a flag's name, and text and comments must never be touched —
-// so a naive substring search is not enough. Bytes that make no sense
-// (a raw < inside text, an unterminated tag) are copied through; the
-// XML parser reports them as usual.
+// inside start tags, which gain ="true". The scanner walks raw bytes
+// and copies comments, CDATA sections, processing instructions, and
+// declarations whole (verbatimEnd), and tracks quoted attribute
+// values wholesale — an attribute value may legally contain > or a
+// flag's name — so text and comments are never rewritten. Bytes that
+// make no sense (a raw < inside text, an unterminated tag) are
+// copied through; the XML parser reports them as usual.
 func patchFlags(data []byte) []byte {
 	var out []byte
 	i := 0
@@ -30,8 +61,21 @@ func patchFlags(data []byte) []byte {
 			i++
 			continue
 		}
-		// A start tag begins <name; comments <!--, CDATA <![,
-		// processing instructions <?, and closing tags </ do not.
+		// Verbatim blocks: a comment, a CDATA section, a processing
+		// instruction, or a declaration may legally contain anything,
+		// including text shaped like a start tag. CDATA interior is
+		// real text (it lands in a text element's content), so
+		// rewriting inside it would corrupt the document; comments
+		// and the rest are ignored by the parser and must pass
+		// through untouched. Unterminated blocks copy to the end and
+		// let the parser report them.
+		if end := verbatimEnd(data, i); end > 0 {
+			out = append(out, data[i:end]...)
+			i = end
+			continue
+		}
+		// A start tag begins <name; closing tags </ and any other <
+		// fall through to the byte-at-a-time copy below.
 		if i+1 >= len(data) || !isNameStart(data[i+1]) {
 			out = append(out, data[i])
 			i++

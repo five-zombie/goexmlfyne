@@ -309,12 +309,15 @@ func TestBareFlags(t *testing.T) {
 	}
 	_ = root
 
-	// Lookalikes stay verbatim: a comment, an attribute value holding
-	// a flag's name or a > sign, and inner text must all survive the
-	// rewrite untouched.
+	// Lookalikes stay verbatim: a comment, a CDATA section holding
+	// tag-shaped text, an attribute value holding a flag's name or a
+	// > sign, and inner text must all survive the rewrite untouched.
+	// The CDATA interior is real text — a rewrite there would corrupt
+	// the document, not just an ignored token.
 	doc := `<goexml version="0.1.0"><window title="x > scrollable" size="1x1">` +
-		`<!-- scrollable -->` +
-		`<vbox id="v"><label text="not selected really"/><text>scrollable</text>` +
+		`<!-- <vbox scrollable> -->` +
+		`<vbox id="v"><label text="not selected really"/>` +
+		`<text><![CDATA[usage: <vbox scrollable> and <option selected>]]></text>` +
 		`<select id="s" onChange="P"><option value="selected" text="A" selected="true"/></select>` +
 		`</vbox></window></goexml>`
 	n, err := Decode([]byte(doc))
@@ -330,17 +333,24 @@ func TestBareFlags(t *testing.T) {
 	if got := win.Attr("title"); got != "x > scrollable" {
 		t.Fatalf("title = %q, want the raw value", got)
 	}
+	var txt *Node
 	var opt *Node
-	var findOpt func(n *Node)
-	findOpt = func(n *Node) {
+	var findTextOpt func(n *Node)
+	findTextOpt = func(n *Node) {
+		if n.Type == "text" {
+			txt = n
+		}
 		if n.Type == "option" {
 			opt = n
 		}
 		for _, c := range n.Children {
-			findOpt(c)
+			findTextOpt(c)
 		}
 	}
-	findOpt(win)
+	findTextOpt(win)
+	if want := "usage: <vbox scrollable> and <option selected>"; txt.Text != want {
+		t.Fatalf("CDATA text = %q, want %q", txt.Text, want)
+	}
 	if got := opt.Attr("value"); got != "selected" {
 		t.Fatalf("option value = %q, want \"selected\"", got)
 	}
