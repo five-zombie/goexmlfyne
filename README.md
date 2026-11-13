@@ -87,9 +87,16 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   longer declares become unreachable, and a widget that rebuilt plain
   loses the previous page's templates.
 
-Every widget carries `id` (unique, `[A-Za-z0-9_]+`), `visible`
-(true/false), and — where Fyne supports it (`button`, `entry`,
-`select`) — `disabled` (true/false).
+`id` (unique, `[A-Za-z0-9_]+`) is **optional**: give it to elements
+Go addresses at runtime, and skip it on possibly-static ones (a plain
+label, a `rect` divider, a layout box). It stays required on the
+elements that cannot be static — `container` (slots are filled by id),
+`vbox-expand` (the handle comes from `Find`), an `image` without `src`
+(a slot image must be addressable), and any element carrying a
+`{{placeholder}}` template (templates render through the setters,
+which address by id). `visible` (true/false) is common, and so is
+`disabled` (true/false) where Fyne supports it (`button`, `entry`,
+`select`).
 
 ## Style
 

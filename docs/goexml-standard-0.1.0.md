@@ -21,6 +21,14 @@ this format into Fyne widgets.
 > structure element **`vbox-expand`** joins the schema: an append-only
 > stack whose items are built at runtime from `goexml-item` fragments.
 > The element takes no children. See the Tags list.
+>
+> **Fourth amendment, 13 November 2026 (still version 0.1.0):** `id`
+> becomes **optional** on possibly-static elements. It stays required
+> on the elements the runtime must reference by name: `container`,
+> `vbox-expand`, an `image` without `src`, and any element carrying a
+> `{{placeholder}}` template. Uniqueness and the `[A-Za-z0-9_]+`
+> shape still apply whenever an id is present. See the common
+> attributes block.
 
 ## Minimal example
 
@@ -101,9 +109,12 @@ this format into Fyne widgets.
 
 ## Attributes on every widget
 
-- `id`: unique per file, e.g. `id="btnSave"`. Letters, digits, and
-  underscore only; anything else is rejected. Used by handlers, tests,
-  and error messages.
+- `id`: optional, unique per file when present, e.g. `id="btnSave"`.
+  Letters, digits, and underscore only; anything else is rejected.
+  Give it to elements the runtime addresses; skip it on possibly-
+  static ones. Still required on `container`, `vbox-expand`, an
+  `image` without `src`, and any element whose text carries a
+  `{{placeholder}}` template — those cannot work unaddressed.
 - `visible`: `true` or `false`, default `true`.
 - `disabled`: only on `button`, `entry`, and `select` (the only widgets
   Fyne can disable); `true` or `false`, default `false`.

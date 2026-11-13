@@ -183,53 +183,53 @@ func Showcase() *goexml.Node {
 					&goexml.Node{
 						Type:  "vbox",
 						Line:  3,
-						Attrs: map[string]string{"align": "start", "id": "root", "padding": "8", "spacing": "4"},
+						Attrs: map[string]string{"align": "start", "padding": "8", "spacing": "4"},
 						Children: []*goexml.Node{
 							&goexml.Node{
 								Type:  "text",
 								Line:  4,
-								Attrs: map[string]string{"id": "intro"},
+								Attrs: map[string]string{},
 								Text:  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi. At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores. Et harum quidem rerum facilis est et expedita distinctio nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit. Impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus temporibus autem quibusdam.",
 							},
 							&goexml.Node{
 								Type:  "vbox",
 								Line:  5,
-								Attrs: map[string]string{"align": "start", "column": "grid", "id": "grid", "max": "4", "min": "2", "spacing": "4", "style": "w-full"},
+								Attrs: map[string]string{"align": "start", "column": "grid", "max": "4", "min": "2", "spacing": "4", "style": "w-full"},
 								Children: []*goexml.Node{
 									&goexml.Node{
 										Type:  "text",
 										Line:  6,
-										Attrs: map[string]string{"id": "c1"},
+										Attrs: map[string]string{},
 										Text:  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  7,
-										Attrs: map[string]string{"id": "c2"},
+										Attrs: map[string]string{},
 										Text:  "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in amet.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  8,
-										Attrs: map[string]string{"id": "c3"},
+										Attrs: map[string]string{},
 										Text:  "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat enim.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  9,
-										Attrs: map[string]string{"id": "c4"},
+										Attrs: map[string]string{},
 										Text:  "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum sed ut perspiciatis unde.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  10,
-										Attrs: map[string]string{"id": "c5"},
+										Attrs: map[string]string{},
 										Text:  "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam nemo enim ipsam.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  11,
-										Attrs: map[string]string{"id": "c6"},
+										Attrs: map[string]string{},
 										Text:  "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione.",
 									},
 								},
@@ -237,18 +237,18 @@ func Showcase() *goexml.Node {
 							&goexml.Node{
 								Type:  "hbox",
 								Line:  13,
-								Attrs: map[string]string{"id": "between2", "justify": "space-between", "spacing": "16", "style": "w-full"},
+								Attrs: map[string]string{"justify": "space-between", "spacing": "16", "style": "w-full"},
 								Children: []*goexml.Node{
 									&goexml.Node{
 										Type:  "text",
 										Line:  14,
-										Attrs: map[string]string{"id": "b2a"},
+										Attrs: map[string]string{},
 										Text:  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  15,
-										Attrs: map[string]string{"id": "b2b"},
+										Attrs: map[string]string{},
 										Text:  "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in amet.",
 									},
 								},
@@ -256,24 +256,24 @@ func Showcase() *goexml.Node {
 							&goexml.Node{
 								Type:  "hbox",
 								Line:  17,
-								Attrs: map[string]string{"id": "between3", "justify": "space-between", "spacing": "16", "style": "w-full"},
+								Attrs: map[string]string{"justify": "space-between", "spacing": "16", "style": "w-full"},
 								Children: []*goexml.Node{
 									&goexml.Node{
 										Type:  "text",
 										Line:  18,
-										Attrs: map[string]string{"id": "b3a"},
+										Attrs: map[string]string{},
 										Text:  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  19,
-										Attrs: map[string]string{"id": "b3b"},
+										Attrs: map[string]string{},
 										Text:  "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat enim.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  20,
-										Attrs: map[string]string{"id": "b3c"},
+										Attrs: map[string]string{},
 										Text:  "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam nemo enim ipsam.",
 									},
 								},
@@ -281,24 +281,24 @@ func Showcase() *goexml.Node {
 							&goexml.Node{
 								Type:  "vbox",
 								Line:  22,
-								Attrs: map[string]string{"align": "end", "id": "rightCol", "style": "w-full"},
+								Attrs: map[string]string{"align": "end", "style": "w-full"},
 								Children: []*goexml.Node{
 									&goexml.Node{
 										Type:  "text",
 										Line:  23,
-										Attrs: map[string]string{"id": "r1", "wrap": "off"},
+										Attrs: map[string]string{"wrap": "off"},
 										Text:  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  24,
-										Attrs: map[string]string{"id": "r2", "wrap": "off"},
+										Attrs: map[string]string{"wrap": "off"},
 										Text:  "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis.",
 									},
 									&goexml.Node{
 										Type:  "text",
 										Line:  25,
-										Attrs: map[string]string{"id": "r3", "wrap": "off"},
+										Attrs: map[string]string{"wrap": "off"},
 										Text:  "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint.",
 									},
 								},
@@ -306,56 +306,56 @@ func Showcase() *goexml.Node {
 							&goexml.Node{
 								Type:  "hbox",
 								Line:  27,
-								Attrs: map[string]string{"id": "visuals", "spacing": "8", "style": "w-full"},
+								Attrs: map[string]string{"spacing": "8", "style": "w-full"},
 								Children: []*goexml.Node{
 									&goexml.Node{
 										Type:  "vbox",
 										Line:  28,
-										Attrs: map[string]string{"id": "card", "spacing": "2", "style": "bg-[#1e293b] rounded-xl p-2"},
+										Attrs: map[string]string{"spacing": "2", "style": "bg-[#1e293b] rounded-xl p-2"},
 										Children: []*goexml.Node{
 											&goexml.Node{
 												Type:  "label",
 												Line:  29,
-												Attrs: map[string]string{"id": "cardTitle", "text": "Card"},
+												Attrs: map[string]string{"text": "Card"},
 											},
 											&goexml.Node{
 												Type:  "label",
 												Line:  30,
-												Attrs: map[string]string{"id": "cardBody", "text": "Rounded card, no border"},
+												Attrs: map[string]string{"text": "Rounded card, no border"},
 											},
 										},
 									},
 									&goexml.Node{
 										Type:  "vbox",
 										Line:  32,
-										Attrs: map[string]string{"id": "panel", "spacing": "2", "style": "bg-[#0f172a] b-2 b-[#475569] rounded-md p-2"},
+										Attrs: map[string]string{"spacing": "2", "style": "bg-[#0f172a] b-2 b-[#475569] rounded-md p-2"},
 										Children: []*goexml.Node{
 											&goexml.Node{
 												Type:  "label",
 												Line:  33,
-												Attrs: map[string]string{"id": "panelTitle", "text": "Panel"},
+												Attrs: map[string]string{"text": "Panel"},
 											},
 											&goexml.Node{
 												Type:  "label",
 												Line:  34,
-												Attrs: map[string]string{"id": "panelBody", "text": "Rounded panel with a border"},
+												Attrs: map[string]string{"text": "Rounded panel with a border"},
 											},
 										},
 									},
 									&goexml.Node{
 										Type:  "vbox",
 										Line:  36,
-										Attrs: map[string]string{"id": "accent", "spacing": "2", "style": "b-1 bt-3 b-[#334155] bt-[#f59e0b] p-2"},
+										Attrs: map[string]string{"spacing": "2", "style": "b-1 bt-3 b-[#334155] bt-[#f59e0b] p-2"},
 										Children: []*goexml.Node{
 											&goexml.Node{
 												Type:  "label",
 												Line:  37,
-												Attrs: map[string]string{"id": "accentTitle", "text": "Accent"},
+												Attrs: map[string]string{"text": "Accent"},
 											},
 											&goexml.Node{
 												Type:  "label",
 												Line:  38,
-												Attrs: map[string]string{"id": "accentBody", "text": "Non-uniform border, thick amber top"},
+												Attrs: map[string]string{"text": "Non-uniform border, thick amber top"},
 											},
 										},
 									},
@@ -364,7 +364,7 @@ func Showcase() *goexml.Node {
 							&goexml.Node{
 								Type:  "image",
 								Line:  41,
-								Attrs: map[string]string{"fit": "contain", "id": "demoImage", "src": "assets/demo.png", "style": "w-full h-16 bg-[#0f172a] rounded-md"},
+								Attrs: map[string]string{"fit": "contain", "src": "assets/demo.png", "style": "w-full h-16 bg-[#0f172a] rounded-md"},
 							},
 							&goexml.Node{
 								Type:  "vbox-expand",
