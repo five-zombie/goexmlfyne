@@ -50,6 +50,12 @@ func extractGoBlocks(t *testing.T, readme string) []struct {
 // the local module in a temporary module. Partial snippets are skipped:
 // only blocks claiming to be runnable programs carry this contract.
 func TestREADMEExamplesCompile(t *testing.T) {
+	// This gate runs `go mod tidy` + `go build` per program; cold it
+	// pulls the whole dependency graph and takes minutes. It is a
+	// full-run gate: CI executes it explicitly, so `-short` skips it.
+	if testing.Short() {
+		t.Skip("README compile gate is expensive; runs in CI and full go test")
+	}
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain not on PATH")
 	}
