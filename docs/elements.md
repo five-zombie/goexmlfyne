@@ -27,8 +27,6 @@ children rules and value formats. This is the reference for what
 | `vbox` | `spacing`, `align`, `justify`, `column`, `min`, `max` | 1+ widgets; vertical stack or grid |
 | `hbox` | `spacing`, `align`, `justify` | 1+ widgets; horizontal stack |
 | `vbox-expand` | `spacing`, `align`, `justify`, `column`, `min`, `max`, `scrollable` | **none** — items come from Go |
-| `border` | — | regions only |
-| `top` / `bottom` / `left` / `right` / `center` | — | at most one widget each |
 | `container` | — (`id` required) | exactly one child whose subtree holds exactly one `<slot>` |
 | `slot` | `style` (dimension utilities only) | none — a leaf hole filled by Go; exactly one per `container` |
 
@@ -82,8 +80,8 @@ Notes:
 - `disabled` — `true` or `false`, default `false`.
 - `style` — the style sub-language, see [style.md](style.md).
 
-Elements that are never widgets — `goexml`, `goexml-item`, `window`,
-border regions — take no common attributes. `slot` accepts only
+Elements that are never widgets — `goexml`, `goexml-item`, `window`
+— take no common attributes. `slot` accepts only
 `style`, and only dimension utilities (see [style.md](style.md)).
 
 ## Flag attributes

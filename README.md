@@ -12,7 +12,7 @@ Each page owns one responsibility:
 | [docs/getting-started.md](docs/getting-started.md) | first window on screen, install, demo |
 | [docs/elements.md](docs/elements.md) | XML vocabulary: elements, attributes, children |
 | [docs/style.md](docs/style.md) | the `style` sub-language |
-| [docs/layout.md](docs/layout.md) | box/grid/border/scroll sizing semantics |
+| [docs/layout.md](docs/layout.md) | box/grid/scroll sizing semantics |
 | [docs/injection.md](docs/injection.md) | containers, slots, fragments, `BuildItem` |
 | [docs/lists.md](docs/lists.md) | `<vbox-expand>` Draft/Commit stacks |
 | [docs/runtime.md](docs/runtime.md) | the Go API of a built window |
@@ -45,7 +45,6 @@ Each page owns one responsibility:
   `align`, and optional `justify` (inner padding comes from the
   `p-N` style utilities). A `vbox` with
   `column="grid"` becomes a responsive grid clamped by `min`/`max`.
-- `border`: uses `top`, `bottom`, `left`, `right`, `center` children.
 - `label text="..."`: one line, no wrapping, no children.
 - `button text onClick`: `onClick` names a Go function, no inline code.
 - `entry text placeholder`: single-line input, disableable.

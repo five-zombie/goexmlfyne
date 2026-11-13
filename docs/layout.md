@@ -1,7 +1,7 @@
 # Layout
 
 Responsibility: how the layout engine sizes and positions elements —
-box stacks, grids, border regions, scroll and the fill/exact-height
+box stacks, grids, scroll and the fill/exact-height
 hints. The attribute lists per element are in
 [elements.md](elements.md); the utility grammar is in
 [style.md](style.md).
@@ -76,13 +76,6 @@ columns instead of one stack:
   sets that height exactly), wrapped `text` grows the row to its true
   wrapped height, and leftover window height is shared equally by all
   rows.
-
-## Border regions
-
-`<border>` uses `top`, `bottom`, `left`, `right`, `center` children;
-each region holds at most one widget. Multiple widgets in one region
-must be wrapped in a `<vbox>` (decode rejects >1 child per region).
-The center region fills the leftover space.
 
 ## Scroll
 

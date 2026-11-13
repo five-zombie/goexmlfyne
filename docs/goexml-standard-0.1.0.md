@@ -60,6 +60,17 @@ this format into Fyne widgets.
 > and the setters express it without map literals in the loop. A
 > fragment's `<image src="key">` resolves against the build's
 > resource set.
+>
+> **Eighth amendment, 13 November 2026 (still version 0.1.0):** the
+> `<border>` element and its `top`/`bottom`/`left`/`right`/`center`
+> region children are removed from the schema. The five-region design
+> was never specified — the requirement only said "border" — so the
+> element is gone in full rather than carried on an assumption. Layout
+> is explicit: compose with `vbox`/`hbox`. The visual border
+> utilities (`b-`/`bt-`/`br-`/`bl-`/`bb-` with widths and colors) are
+> untouched — they belong to the style layer. A hand-built tree that
+> still carries a `<border>` node is rejected at decode ("was removed
+> from the schema; use vbox/hbox") and at build ("cannot build").
 
 ## Minimal example
 
@@ -105,8 +116,6 @@ this format into Fyne widgets.
   `scrollable` attribute wraps the stack in a scroll so `h-*` bounds
   its visible height. A third amendment element — see the amendment
   block.
-- `border`: uses `top`, `bottom`, `left`, `right`, `center` children;
-  each region holds at most one child.
 - `label`: `text`.
 - `button`: `text`, `onClick`.
 - `entry`: `text`, `placeholder`.
