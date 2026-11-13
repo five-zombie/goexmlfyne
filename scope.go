@@ -35,20 +35,6 @@ type widgetScope struct {
 	optionRaw map[string][]optPair
 }
 
-// newScope returns a live, empty scope: an app may register into every
-// map after the build (dynamic image resources, template clears).
-func newScope() *widgetScope {
-	return &widgetScope{
-		resources:    map[string]fyne.Resource{},
-		byID:         map[string]fyne.CanvasObject{},
-		nodes:        map[string]*Node{},
-		containers:   map[string]*Container{},
-		templates:    map[string]string{},
-		selectValues: map[string]map[string]string{},
-		optionRaw:    map[string][]optPair{},
-	}
-}
-
 // SetImage swaps the resource shown by an <image>, resolving key
 // against the same resource set the build used. An unknown key or a
 // resource that is not a decodable image is an error, so a swapped
