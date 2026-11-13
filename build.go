@@ -417,6 +417,23 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		// Container is a widget like any other: visible, style padding
 		// and margin must not be accepted-then-dead attributes.
 		return applyState(c, n), nil
+	case "vbox-expand":
+		// An append-only stack: nothing is built from XML children
+		// (decode rejects them), so the box starts empty and grows
+		// through List.Append. scrollable wraps the box so h-N and
+		// h-full bound the visible height; without them the box
+		// simply sizes to its items.
+		box := container.NewVBox()
+		visible := fyne.CanvasObject(box)
+		if _, ok := n.Attrs["scrollable"]; ok {
+			visible = container.NewScroll(box)
+		}
+		l := &List{
+			Container: container.New(&holderLayout{}, visible),
+			box:       box,
+			tap:       ctx.tap,
+		}
+		return applyState(l, n), nil
 	case "vbox", "hbox":
 		vertical := n.Type == "vbox"
 		var objs []fyne.CanvasObject
