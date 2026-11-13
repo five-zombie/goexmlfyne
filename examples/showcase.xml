@@ -35,7 +35,7 @@
         </vbox>
         <vbox id="accent" style="b-1 bt-3 b-[#334155] bt-[#f59e0b] p-2" spacing="2">
           <label id="accentTitle" text="Accent" />
-          <label id="accentBody" text="Uniform border, thick amber top" />
+          <label id="accentBody" text="Non-uniform border, thick amber top" />
         </vbox>
       </hbox>
     </vbox>

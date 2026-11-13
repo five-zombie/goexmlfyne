@@ -326,7 +326,7 @@ func Showcase() *goexml.Node {
 											&goexml.Node{
 												Type:  "label",
 												Line:  38,
-												Attrs: map[string]string{"id": "accentBody", "text": "Uniform border, thick amber top"},
+												Attrs: map[string]string{"id": "accentBody", "text": "Non-uniform border, thick amber top"},
 											},
 										},
 									},
