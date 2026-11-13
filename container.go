@@ -17,10 +17,16 @@ type Container struct {
 }
 
 // SetContent places obj in the slot, replacing any previous content.
-// The design around the slot (header, footer, whatever the XML holds)
-// is never touched.
+// Passing nil empties the slot: nothing is stored, so a half-filled
+// container stays a hole that Commit refuses — never a nil object
+// that panics the renderer. The design around the slot (header,
+// footer, whatever the XML holds) is never touched.
 func (c *Container) SetContent(obj fyne.CanvasObject) {
-	c.slot.Objects = []fyne.CanvasObject{obj}
+	if obj == nil {
+		c.slot.Objects = nil
+	} else {
+		c.slot.Objects = []fyne.CanvasObject{obj}
+	}
 	c.slot.Refresh()
 }
 

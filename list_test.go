@@ -297,6 +297,41 @@ func TestListItemSetters(t *testing.T) {
 	}
 }
 
+// TestListSlotNil covers the nil slot: SetContent(nil) empties the
+// slot instead of storing a nil object, so Commit refuses it as an
+// unfilled slot — never a nil object that panics the renderer.
+func TestListSlotNil(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox-expand id="feed"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	feed := w.Find("feed").(*List)
+	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0">` +
+		`<container id="slot"><slot/></container></goexml-item>`))
+	it, err := feed.Draft(frag)
+	if err != nil {
+		t.Fatalf("Draft: %v", err)
+	}
+	it.Find("slot").(*Container).SetContent(nil)
+	if err := feed.Commit(it); err == nil || !strings.Contains(err.Error(), `slot "slot" is not filled`) {
+		t.Fatalf("error %q does not name the nil slot as unfilled", err)
+	}
+	if feed.Count() != 0 {
+		t.Fatal("a nil slot was committed")
+	}
+	// The slot is empty, not poisoned: filling it for real commits.
+	it.Find("slot").(*Container).SetContent(widget.NewLabel("body"))
+	if err := feed.Commit(it); err != nil {
+		t.Fatalf("Commit after refill: %v", err)
+	}
+	if feed.Count() != 1 {
+		t.Fatalf("Count = %d, want 1", feed.Count())
+	}
+}
+
 // TestListNonScrollable locks the plain box variant: same handle, no
 // scroll wrapper, and the visual layer still applies.
 func TestListNonScrollable(t *testing.T) {

@@ -140,7 +140,7 @@ func (l *List) Commit(it *Item) error {
 		return fmt.Errorf("goexml: this item is already committed")
 	}
 	for id, c := range it.containers {
-		if len(c.slot.Objects) == 0 {
+		if len(c.slot.Objects) == 0 || c.slot.Objects[0] == nil {
 			return fmt.Errorf("goexml: slot %q is not filled: set it before Commit", id)
 		}
 	}
