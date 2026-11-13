@@ -173,6 +173,72 @@ func TestSetImage(t *testing.T) {
 	}
 }
 
+// TestSetImageSlot covers the src-less slot model: the build leaves
+// the image empty, the setters fill it, and UnfilledImages reports
+// orphans so a slot can never be forgotten.
+func TestSetImageSlot(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		`<vbox id="v"><image id="slot" fit="cover" style="w-full h-8"/></vbox></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Build without resources: %v", err)
+	}
+	img, ok := w.Find("slot").(*canvas.Image)
+	if !ok {
+		t.Fatalf("slot image = %T, want *canvas.Image", w.Find("slot"))
+	}
+	if img.Resource != nil {
+		t.Fatal("slot image started filled")
+	}
+	if got := w.UnfilledImages(); len(got) != 1 || got[0] != "slot" {
+		t.Fatalf("UnfilledImages = %v, want [slot]", got)
+	}
+
+	// Fill directly from fetched bytes — no resource set needed.
+	res := fyne.NewStaticResource("photo.png", pngBytes(5, 7, color.NRGBA{G: 255, A: 255}))
+	if err := w.SetImageRes("slot", res); err != nil {
+		t.Fatalf("SetImageRes: %v", err)
+	}
+	if img.Resource != res {
+		t.Fatal("SetImageRes did not attach the resource")
+	}
+	if min := img.MinSize(); min.Width != 5 || min.Height != 7 {
+		t.Fatalf("min size after fill = %v, want 5x7", min)
+	}
+	if got := w.UnfilledImages(); len(got) != 0 {
+		t.Fatalf("UnfilledImages after fill = %v, want none", got)
+	}
+
+	// SetImage still works against the window's resource set.
+	w.resources["swap"] = fyne.NewStaticResource("swap.png", pngBytes(2, 9, color.NRGBA{A: 255}))
+	if err := w.SetImage("slot", "swap"); err != nil {
+		t.Fatalf("SetImage on slot: %v", err)
+	}
+	if min := img.MinSize(); min.Width != 2 || min.Height != 9 {
+		t.Fatalf("min size after swap = %v, want 2x9", min)
+	}
+
+	// SetImageRes determinism: nil resource, bad bytes, unknown id,
+	// wrong node kind.
+	for _, tc := range []struct {
+		name string
+		id   string
+		res  fyne.Resource
+		want string
+	}{
+		{"nil resource", "slot", nil, "nil resource"},
+		{"bad bytes", "slot", fyne.NewStaticResource("junk.png", []byte("nope")), "bad image resource"},
+		{"unknown id", "nope", res, "no widget with id"},
+		{"wrong node", "v", res, "cannot set an image on"},
+	} {
+		err := w.SetImageRes(tc.id, tc.res)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: error %q does not contain %q", tc.name, err, tc.want)
+		}
+	}
+}
+
 // TestSetImageWrongNode locks the node-kind guard.
 func TestSetImageWrongNode(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +

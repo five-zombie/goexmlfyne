@@ -108,6 +108,11 @@ func (w *Window) SelectValue(id string) (string, bool) {
 // named image payloads that <image src> resolves against; a missing
 // handler, container or resource key fails the build.
 func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObject, resources map[string]fyne.Resource) (*Window, error) {
+	// Normalize so the window always holds a live set: an app that
+	// fills slot images at runtime registers into this same map.
+	if resources == nil {
+		resources = map[string]fyne.Resource{}
+	}
 	if root == nil || root.Type != "goexml" {
 		return nil, fmt.Errorf("goexml: root must be a <goexml> node")
 	}
@@ -231,6 +236,9 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject, re
 	}
 	// Last call wins: SetImage after this build resolves against the
 	// newest resource set.
+	if resources == nil {
+		resources = map[string]fyne.Resource{}
+	}
 	w.resources = resources
 	ctx := &buildCtx{
 		tap:          w.tap,
@@ -548,9 +556,16 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		r, g, b, _ := parseHexColor(n, n.Attr("color"))
 		return applyState(canvas.NewRectangle(color.NRGBA{R: r, G: g, B: b, A: 255}), n), nil
 	case "image":
-		res, ok := ctx.resources[n.Attr("src")]
+		src := n.Attr("src")
+		if src == "" {
+			// No src: a runtime-filled slot, like a container slot.
+			// The image starts empty and invisible until SetImage or
+			// SetImageRes fills it; UnfilledImages reports leftovers.
+			return applyState(canvas.NewImageFromResource(nil), n), nil
+		}
+		res, ok := ctx.resources[src]
 		if !ok {
-			return nil, nodeErr(n, "unknown image resource %q", n.Attr("src"))
+			return nil, nodeErr(n, "unknown image resource %q", src)
 		}
 		// A resource that exists but is not a decodable image would
 		// render as an empty box and only log at paint time; fail the
@@ -558,7 +573,7 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		// also gives the intrinsic pixel size for the min size.
 		cfg, _, err := image.DecodeConfig(bytes.NewReader(res.Content()))
 		if err != nil {
-			return nil, nodeErr(n, "bad image resource %q: %v", n.Attr("src"), err)
+			return nil, nodeErr(n, "bad image resource %q: %v", src, err)
 		}
 		img := canvas.NewImageFromResource(res)
 		// The backend gives images no intrinsic min size in the fill

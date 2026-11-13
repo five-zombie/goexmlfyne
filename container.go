@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"sort"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -32,7 +33,7 @@ func (c *Container) SetContent(obj fyne.CanvasObject) {
 // against the same resource set the build used. An unknown key or a
 // resource that is not a decodable image is an error, so a swapped
 // image can never silently render empty; the min size follows the new
-// resource's intrinsic pixels.
+// resource's intrinsic pixels. It also fills a src-less slot image.
 func (w *Window) SetImage(id, key string) error {
 	n, ok := w.nodes[id]
 	if !ok {
@@ -45,15 +46,58 @@ func (w *Window) SetImage(id, key string) error {
 	if !ok {
 		return fmt.Errorf("goexml: unknown image resource %q", key)
 	}
+	return w.setImage(id, res)
+}
+
+// SetImageRes swaps the resource shown by an <image> directly — no
+// resource set lookup, so bytes fetched late (server, database,
+// object store) can be attached without registering them first. The
+// bytes must decode as an image, so a filled image never renders
+// empty; the min size follows the resource's intrinsic pixels.
+func (w *Window) SetImageRes(id string, res fyne.Resource) error {
+	n, ok := w.nodes[id]
+	if !ok {
+		return fmt.Errorf("goexml: no widget with id %q", id)
+	}
+	if n.Type != "image" {
+		return nodeErr(n, "cannot set an image on <%s>", n.Type)
+	}
+	return w.setImage(id, res)
+}
+
+// setImage validates the resource and installs it on the image,
+// updating the min size to the new resource's intrinsic pixels.
+func (w *Window) setImage(id string, res fyne.Resource) error {
+	if res == nil {
+		return fmt.Errorf("goexml: nil resource for image %q", id)
+	}
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(res.Content()))
 	if err != nil {
-		return fmt.Errorf("goexml: bad image resource %q: %v", key, err)
+		return fmt.Errorf("goexml: bad image resource %q: %v", res.Name(), err)
 	}
 	img := w.byID[id].(*canvas.Image)
 	img.Resource = res
 	img.SetMinSize(fyne.NewSize(float32(cfg.Width), float32(cfg.Height)))
 	img.Refresh()
 	return nil
+}
+
+// UnfilledImages returns the ids of slot images (no src) that no
+// SetImage or SetImageRes has filled yet, sorted for determinism. An
+// unfilled slot renders empty and invisible like an unfilled container
+// slot; call this before the window shows to catch orphans.
+func (w *Window) UnfilledImages() []string {
+	var ids []string
+	for id, n := range w.nodes {
+		if n.Type != "image" || n.Attr("src") != "" {
+			continue
+		}
+		if img, ok := w.byID[id].(*canvas.Image); ok && img.Resource == nil {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // SetText sets the text of a label, text, button or entry. Setting a
