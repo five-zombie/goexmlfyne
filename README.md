@@ -39,8 +39,9 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   Inside a horizontal box wrapping texts split the leftover width
   equally; `spacing` stays the gutter between the columns.
 - `select onChange` with `<option value text selected?>` children:
-  `selected=""` (no value) marks the chosen option; `SelectValue(id)`
-  returns the `value` of the current choice.
+  the bare attribute `selected` (or `selected="true"`) marks the
+  chosen option; `SelectValue(id)` returns the `value` of the current
+  choice.
 - `table onSelect` with `<row><cell>` children: first row is the
   header. Wrapped in a sizing box so the header plus every data row
   stays visible; each column is sized to its widest cell. `Find(id)`

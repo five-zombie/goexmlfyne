@@ -38,6 +38,14 @@ this format into Fyne widgets.
 > `spacing`, `align`, `justify`, and `column="grid"` with `min`/`max`
 > now lay out its appended items exactly as they lay out a `vbox`'s
 > children. See Layout attributes and the Tags list.
+>
+> **Sixth amendment, 13 November 2026 (still version 0.1.0):** flag
+> attributes — attributes whose presence alone means true, currently
+> `scrollable` and `selected` — may be written bare: the decoder
+> rewrites a bare flag to `="true"` before parsing, so
+> `<vbox-expand scrollable />` and `scrollable="true"` spell the same
+> thing. The older empty form (`scrollable=""`) and any other value
+> are rejected with a migration hint naming the accepted spellings.
 
 ## Minimal example
 
@@ -79,19 +87,21 @@ this format into Fyne widgets.
   runtime from `goexml-item` fragments. Takes no children and no
   items in the document; its layout attributes mirror the static
   `vbox` — `spacing`, `align`, `justify`, and `column="grid"` with
-  `min`/`max` — applied to the appended items, and `scrollable`
-  (present and empty) wraps the stack in a scroll so `h-*` bounds its
-  visible height. A third amendment element — see the amendment block.
+  `min`/`max` — applied to the appended items, and the bare
+  `scrollable` attribute wraps the stack in a scroll so `h-*` bounds
+  its visible height. A third amendment element — see the amendment
+  block.
 - `border`: uses `top`, `bottom`, `left`, `right`, `center` children;
   each region holds at most one child.
 - `label`: `text`.
 - `button`: `text`, `onClick`.
 - `entry`: `text`, `placeholder`.
 - `select`: `onChange` required, only `<option>` children, like HTML.
-- `option`: `value` and `text` required. The chosen marker is a bare
-  `selected=""` (present with no value) on one option; a `selected`
-  carrying any value is rejected. The UI shows `text`; `value` is kept
-  for the value-reading API.
+- `option`: `value` and `text` required. The chosen marker is the
+  bare `selected` attribute — the decoder rewrites bare flags to
+  `="true"`, so `selected="true"` spells the same thing — on one
+  option; any other value is rejected. The UI shows `text`; `value`
+  is kept for the value-reading API.
 - `table`: optional `onSelect`, only `<row>` children. The first row is
   the header. Height style utilities (`h-full`, `h-N`) are not
   supported on a table: a table always sizes to its content.
@@ -178,7 +188,7 @@ this format into Fyne widgets.
 <vbox id="data" spacing="4" align="start">
   <select id="pickCity" onChange="OnPick">
     <option value="jkt" text="Jakarta" />
-    <option value="bdg" text="Bandung" selected="" />
+    <option value="bdg" text="Bandung" selected />
   </select>
   <table id="userTable" onSelect="OnPickRow">
     <row><cell text="Name" /><cell text="Age" /></row>
