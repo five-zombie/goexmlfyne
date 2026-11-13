@@ -447,16 +447,6 @@ func (l *visualLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	return objects[len(objects)-1].MinSize()
 }
 
-// maxF clamps a computed length to the non-negative range: when the
-// border is thicker than the element, the inset stroke rect would
-// invert; draw it empty instead of mirroring it.
-func maxF(v float32) float32 {
-	if v < 0 {
-		return 0
-	}
-	return v
-}
-
 func (l *visualLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	w, h := size.Width, size.Height
 	clamp := func(r float32) float32 {
@@ -486,12 +476,12 @@ func (l *visualLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		// edge then follows the bg silhouette at the corners too.
 		s := l.v.BorderW.Top
 		strokeC := Corners{
-			maxF(clamped.TL - s/2), maxF(clamped.TR - s/2),
-			maxF(clamped.BR - s/2), maxF(clamped.BL - s/2),
+			max(0, clamped.TL-s/2), max(0, clamped.TR-s/2),
+			max(0, clamped.BR-s/2), max(0, clamped.BL-s/2),
 		}
 		strokeC.applyTo(objects[i].(*canvas.Rectangle))
 		objects[i].Move(fyne.NewPos(s/2, s/2))
-		objects[i].Resize(fyne.NewSize(maxF(w-s), maxF(h-s)))
+		objects[i].Resize(fyne.NewSize(max(0, w-s), max(0, h-s)))
 		i++
 	}
 	if l.edges {
