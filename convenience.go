@@ -61,12 +61,19 @@ func BuildAct(handlers map[string]func()) Act {
 // Documents with <container> need ApplyActContents instead: Build
 // requires content for every slot, so ApplyAct alone cannot render them.
 func (n *Node) ApplyAct(act Act) (*Window, error) {
-	return Build(n, act, nil)
+	return Build(n, act, nil, nil)
 }
 
 // ApplyActContents renders the node like ApplyAct and additionally
 // supplies the slot contents for the document's containers, keyed by
 // container id — the same map Build takes.
 func (n *Node) ApplyActContents(act Act, contents map[string]fyne.CanvasObject) (*Window, error) {
-	return Build(n, act, contents)
+	return Build(n, act, contents, nil)
+}
+
+// ApplyActResources renders the node like ApplyActContents and
+// additionally supplies the resource set that <image src> keys
+// resolve against — the same map Build takes.
+func (n *Node) ApplyActResources(act Act, contents map[string]fyne.CanvasObject, resources map[string]fyne.Resource) (*Window, error) {
+	return Build(n, act, contents, resources)
 }

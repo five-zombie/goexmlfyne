@@ -87,7 +87,7 @@ func buildPage(handlers map[string]func()) (*goexml.Window, error) {
 	// place until the fragment replaces it, before the window shows.
 	win, err = goexml.Build(root, handlers, map[string]fyne.CanvasObject{
 		"page": widget.NewLabel(""),
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func buildPage(handlers map[string]func()) (*goexml.Window, error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := win.BuildItem(item, nil)
+	body, err := win.BuildItem(item, nil, nil)
 	if err != nil {
 		return nil, err
 	}

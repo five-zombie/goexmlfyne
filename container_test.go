@@ -25,7 +25,7 @@ func TestContainerVisibleFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestContainerVisibleFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err = Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err = Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestBuildContainerSlot(t *testing.T) {
 		t.Fatalf("Decode: %v", err)
 	}
 	body := widget.NewLabel("body")
-	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": body})
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": body}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -96,11 +96,11 @@ func TestBuildContainerRequiresContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	if _, err := Build(root, map[string]func(){}, nil); err == nil ||
+	if _, err := Build(root, map[string]func(){}, nil, nil); err == nil ||
 		!strings.Contains(err.Error(), `slot must be filled`) {
 		t.Fatalf("unfilled slot error = %v", err)
 	}
-	if _, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"paeg": widget.NewLabel("x")}); err == nil ||
+	if _, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"paeg": widget.NewLabel("x")}, nil); err == nil ||
 		!strings.Contains(err.Error(), `no container with id "paeg"`) {
 		t.Fatalf("unknown key error = %v", err)
 	}
@@ -112,7 +112,7 @@ func TestBuildItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestBuildItem(t *testing.T) {
 	if item == nil {
 		t.Fatal("DecodeItem failed")
 	}
-	obj, err := w.BuildItem(item, nil)
+	obj, err := w.BuildItem(item, nil, nil)
 	if err != nil {
 		t.Fatalf("BuildItem: %v", err)
 	}
@@ -134,22 +134,22 @@ func TestBuildItem(t *testing.T) {
 
 	// Colliding with a document id is rejected.
 	bad, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><label id="b" text="x"/></goexml-item>`))
-	if _, err := w.BuildItem(bad, nil); err == nil ||
+	if _, err := w.BuildItem(bad, nil, nil); err == nil ||
 		!strings.Contains(err.Error(), `id "b" is already used by the document`) {
 		t.Fatalf("collision error = %v", err)
 	}
 
 	// A container in the fragment must be filled; unknown keys rejected.
 	frag, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><container id="c1"><slot/></container></goexml-item>`))
-	if _, err := w.BuildItem(frag, nil); err == nil ||
+	if _, err := w.BuildItem(frag, nil, nil); err == nil ||
 		!strings.Contains(err.Error(), "slot must be filled") {
 		t.Fatalf("unfilled fragment slot error = %v", err)
 	}
-	if _, err := w.BuildItem(frag, map[string]fyne.CanvasObject{"nope": widget.NewLabel("x")}); err == nil ||
+	if _, err := w.BuildItem(frag, map[string]fyne.CanvasObject{"nope": widget.NewLabel("x")}, nil); err == nil ||
 		!strings.Contains(err.Error(), `no container with id "nope" in the fragment`) {
 		t.Fatalf("unknown fragment key error = %v", err)
 	}
-	if _, err := w.BuildItem(frag, map[string]fyne.CanvasObject{"c1": widget.NewLabel("x")}); err != nil {
+	if _, err := w.BuildItem(frag, map[string]fyne.CanvasObject{"c1": widget.NewLabel("x")}, nil); err != nil {
 		t.Fatalf("fragment container rejected: %v", err)
 	}
 	if c, ok := w.Find("c1").(*Container); !ok || c.slot.Objects[0] == nil {
@@ -166,7 +166,7 @@ func TestWindowSetters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){"P": func() {}}, nil)
+	w, err := Build(root, map[string]func(){"P": func() {}}, nil, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestWindowTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){"P": func() {}}, nil)
+	w, err := Build(root, map[string]func(){"P": func() {}}, nil, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestSlotHeightStyle(t *testing.T) {
 		t.Fatalf("Decode: %v", err)
 	}
 	body := widget.NewLabel("body")
-	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": body})
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": body}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestSiblingContainers(t *testing.T) {
 	head, body := widget.NewLabel("head"), widget.NewLabel("body")
 	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{
 		"head": head, "body": body,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestBuildItemAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestBuildItemAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeItem: %v", err)
 	}
-	if _, err := w.BuildItem(item, nil); err == nil ||
+	if _, err := w.BuildItem(item, nil, nil); err == nil ||
 		!strings.Contains(err.Error(), "slot must be filled") {
 		t.Fatalf("expected slot error, got %v", err)
 	}
@@ -329,7 +329,7 @@ func TestBuildItemAtomic(t *testing.T) {
 	// nothing from the failed attempt blocks the retry.
 	if _, err := w.BuildItem(item, map[string]fyne.CanvasObject{
 		"fc": widget.NewLabel("body"),
-	}); err != nil {
+	}, nil); err != nil {
 		t.Fatalf("retry after failed BuildItem: %v", err)
 	}
 	if w.Find("orphan") == nil {
@@ -348,7 +348,7 @@ func TestBuildItemSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){"P": func() {}}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err := Build(root, map[string]func(){"P": func() {}}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestBuildItemSelect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeItem: %v", err)
 	}
-	if _, err := w.BuildItem(item, nil); err != nil {
+	if _, err := w.BuildItem(item, nil, nil); err != nil {
 		t.Fatalf("BuildItem: %v", err)
 	}
 	// The value, not the label, comes back.
@@ -400,7 +400,7 @@ func TestBuildItemRetiresStaleState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){"P": func() {}}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err := Build(root, map[string]func(){"P": func() {}}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestBuildItemRetiresStaleState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeItem: %v", err)
 	}
-	if _, err := w.BuildItem(page1, nil); err != nil {
+	if _, err := w.BuildItem(page1, nil, nil); err != nil {
 		t.Fatalf("BuildItem page1: %v", err)
 	}
 	// Page 2: same select and label ids, now plain; no "gone" label.
@@ -425,7 +425,7 @@ func TestBuildItemRetiresStaleState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeItem: %v", err)
 	}
-	if _, err := w.BuildItem(page2, nil); err != nil {
+	if _, err := w.BuildItem(page2, nil, nil); err != nil {
 		t.Fatalf("BuildItem page2: %v", err)
 	}
 	// Finding 1: a plain select has no template left to render.
@@ -466,7 +466,7 @@ func TestFragmentRebuildOverwrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")})
+	w, err := Build(root, map[string]func(){}, map[string]fyne.CanvasObject{"page": widget.NewLabel("x")}, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestFragmentRebuildOverwrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeItem: %v", err)
 	}
-	if _, err := w.BuildItem(item1, map[string]fyne.CanvasObject{"c1": widget.NewLabel("p1")}); err != nil {
+	if _, err := w.BuildItem(item1, map[string]fyne.CanvasObject{"c1": widget.NewLabel("p1")}, nil); err != nil {
 		t.Fatalf("BuildItem 1: %v", err)
 	}
 	if got, _ := w.Text("lbl"); got != "v1" {
@@ -489,7 +489,7 @@ func TestFragmentRebuildOverwrite(t *testing.T) {
 		t.Fatalf("DecodeItem 2: %v", err)
 	}
 	second := widget.NewLabel("p2")
-	if _, err := w.BuildItem(item2, map[string]fyne.CanvasObject{"c1": second}); err != nil {
+	if _, err := w.BuildItem(item2, map[string]fyne.CanvasObject{"c1": second}, nil); err != nil {
 		t.Fatalf("BuildItem 2: %v", err)
 	}
 	if got, _ := w.Text("lbl"); got != "v1" {

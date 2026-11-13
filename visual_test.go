@@ -37,7 +37,7 @@ func TestStyledBoxVisualLayer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){}, nil)
+	w, err := Build(root, map[string]func(){}, nil, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestStyledBoxVisibleFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){}, nil)
+	w, err := Build(root, map[string]func(){}, nil, nil)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}

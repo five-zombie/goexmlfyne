@@ -75,11 +75,11 @@ func TestGeneratedBuilds(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			host, err := goexml.Build(hostRoot, handlers, nil)
+			host, err := goexml.Build(hostRoot, handlers, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := host.BuildItem(root, nil); err != nil {
+			if _, err := host.BuildItem(root, nil, nil); err != nil {
 				t.Fatalf("BuildItem %s: %v", s.file, err)
 			}
 			continue
@@ -90,7 +90,7 @@ func TestGeneratedBuilds(t *testing.T) {
 				"page": widget.NewLabel(""),
 			}
 		}
-		w, err := goexml.Build(root, handlers, contents)
+		w, err := goexml.Build(root, handlers, contents, nil)
 		if err != nil {
 			t.Fatalf("Build %s: %v", s.file, err)
 		}

@@ -1,7 +1,9 @@
 package goexml
 
 import (
+	"bytes"
 	"fmt"
+	"image"
 	"image/color"
 	"strconv"
 	"strings"
@@ -22,6 +24,9 @@ type Window struct {
 	Size fyne.Size
 	// Content is the root Fyne object to show.
 	Content fyne.CanvasObject
+	// resources is the resource set the build resolved image src keys
+	// against; SetImage re-resolves against it.
+	resources map[string]fyne.Resource
 	// byID maps widget ids to their built objects.
 	byID map[string]fyne.CanvasObject
 	// nodes maps ids to their XML nodes, so setters can dispatch by
@@ -53,6 +58,7 @@ type Window struct {
 // buildCtx carries the shared state of one build pass.
 type buildCtx struct {
 	tap          map[string]func()
+	resources    map[string]fyne.Resource
 	reg          map[string]fyne.CanvasObject
 	nodes        map[string]*Node
 	containers   map[string]*Container
@@ -96,7 +102,12 @@ func (w *Window) SelectValue(id string) (string, bool) {
 // <container> in the document must get its slot content from contents,
 // keyed by the container id; an unfilled slot or an unknown id is an
 // error.
-func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObject) (*Window, error) {
+// Build turns a decoded <goexml> tree into a Window. tap holds the
+// handler named by onClick/onChange/onSelect, contents fills every
+// container's slot keyed by container id, and resources holds the
+// named image payloads that <image src> resolves against; a missing
+// handler, container or resource key fails the build.
+func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObject, resources map[string]fyne.Resource) (*Window, error) {
 	if root == nil || root.Type != "goexml" {
 		return nil, fmt.Errorf("goexml: root must be a <goexml> node")
 	}
@@ -113,6 +124,7 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 	}
 	ctx := &buildCtx{
 		tap:          tap,
+		resources:    resources,
 		reg:          map[string]fyne.CanvasObject{},
 		nodes:        map[string]*Node{},
 		containers:   map[string]*Container{},
@@ -143,6 +155,7 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 		Title:        w.Attr("title"),
 		Size:         fyne.NewSize(float32(sw), float32(sh)),
 		Content:      content,
+		resources:    resources,
 		byID:         ctx.reg,
 		nodes:        ctx.nodes,
 		containers:   ctx.containers,
@@ -186,7 +199,7 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 // must not collide with the document's own ids; ids of previously built
 // fragments are replaced, so pages can be rebuilt. Every container in
 // the fragment must get its content from contents, keyed by id.
-func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (fyne.CanvasObject, error) {
+func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject, resources map[string]fyne.Resource) (fyne.CanvasObject, error) {
 	if node == nil || node.Type != "goexml-item" {
 		return nil, fmt.Errorf("goexml: node must be a <goexml-item> root")
 	}
@@ -216,8 +229,12 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject) (f
 	if err := pre(node.Children[0]); err != nil {
 		return nil, err
 	}
+	// Last call wins: SetImage after this build resolves against the
+	// newest resource set.
+	w.resources = resources
 	ctx := &buildCtx{
 		tap:          w.tap,
+		resources:    resources,
 		reg:          map[string]fyne.CanvasObject{},
 		nodes:        map[string]*Node{},
 		containers:   map[string]*Container{},
@@ -530,6 +547,35 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		// come from hand-built trees, so fall back to opaque black.
 		r, g, b, _ := parseHexColor(n, n.Attr("color"))
 		return applyState(canvas.NewRectangle(color.NRGBA{R: r, G: g, B: b, A: 255}), n), nil
+	case "image":
+		res, ok := ctx.resources[n.Attr("src")]
+		if !ok {
+			return nil, nodeErr(n, "unknown image resource %q", n.Attr("src"))
+		}
+		// A resource that exists but is not a decodable image would
+		// render as an empty box and only log at paint time; fail the
+		// build instead, like any other broken reference. The config
+		// also gives the intrinsic pixel size for the min size.
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(res.Content()))
+		if err != nil {
+			return nil, nodeErr(n, "bad image resource %q: %v", n.Attr("src"), err)
+		}
+		img := canvas.NewImageFromResource(res)
+		// The backend gives images no intrinsic min size in the fill
+		// modes (they scale to the allocated box, min 1x1), so set it
+		// explicitly: without style utilities an image is as large as
+		// its pixels, one px = one coordinate unit like everywhere else.
+		img.SetMinSize(fyne.NewSize(float32(cfg.Width), float32(cfg.Height)))
+		// Decode guarantees one of the three values ("" = contain).
+		switch n.Attr("fit") {
+		case "cover":
+			img.FillMode = canvas.ImageFillCover
+		case "fill":
+			img.FillMode = canvas.ImageFillStretch
+		default:
+			img.FillMode = canvas.ImageFillContain
+		}
+		return applyState(img, n), nil
 	case "select":
 		name := n.Attr("onChange")
 		fn, ok := ctx.tap[name]

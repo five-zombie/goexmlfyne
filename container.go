@@ -1,10 +1,13 @@
 package goexml
 
 import (
+	"bytes"
 	"fmt"
+	"image"
 	"strings"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -23,6 +26,34 @@ type Container struct {
 func (c *Container) SetContent(obj fyne.CanvasObject) {
 	c.slot.Objects = []fyne.CanvasObject{obj}
 	c.slot.Refresh()
+}
+
+// SetImage swaps the resource shown by an <image>, resolving key
+// against the same resource set the build used. An unknown key or a
+// resource that is not a decodable image is an error, so a swapped
+// image can never silently render empty; the min size follows the new
+// resource's intrinsic pixels.
+func (w *Window) SetImage(id, key string) error {
+	n, ok := w.nodes[id]
+	if !ok {
+		return fmt.Errorf("goexml: no widget with id %q", id)
+	}
+	if n.Type != "image" {
+		return nodeErr(n, "cannot set an image on <%s>", n.Type)
+	}
+	res, ok := w.resources[key]
+	if !ok {
+		return fmt.Errorf("goexml: unknown image resource %q", key)
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(res.Content()))
+	if err != nil {
+		return fmt.Errorf("goexml: bad image resource %q: %v", key, err)
+	}
+	img := w.byID[id].(*canvas.Image)
+	img.Resource = res
+	img.SetMinSize(fyne.NewSize(float32(cfg.Width), float32(cfg.Height)))
+	img.Refresh()
+	return nil
 }
 
 // SetText sets the text of a label, text, button or entry. Setting a
