@@ -451,16 +451,18 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
 		}
-		src := n.Attr("src")
-		if src == "" {
-			return nodeErr(n, "needs a src attribute")
-		}
-		// src names a resource the runtime registers, never a file or
-		// URL: a fixed key alphabet keeps a stray path or template out.
-		for _, r := range src {
-			if !('A' <= r && r <= 'Z' || 'a' <= r && r <= 'z' || '0' <= r && r <= '9' ||
-				r == '.' || r == '-' || r == '/' || r == '_') {
-				return nodeErr(n, "bad src %q, want a resource key of letters, digits, dot, dash, slash or underscore", src)
+		if src, ok := n.Attrs["src"]; ok {
+			if src == "" {
+				return nodeErr(n, "bad src %q, want a resource key or no src attribute at all", src)
+			}
+			// src names a resource the runtime registers, never a
+			// file or URL: a fixed key alphabet keeps a stray path or
+			// template out. Absent src means a runtime-filled slot.
+			for _, r := range src {
+				if !('A' <= r && r <= 'Z' || 'a' <= r && r <= 'z' || '0' <= r && r <= '9' ||
+					r == '.' || r == '-' || r == '/' || r == '_') {
+					return nodeErr(n, "bad src %q, want a resource key of letters, digits, dot, dash, slash or underscore", src)
+				}
 			}
 		}
 		switch n.Attr("fit") {
