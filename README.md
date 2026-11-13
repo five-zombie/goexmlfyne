@@ -3,6 +3,23 @@
 `goexml-fyne` renders declarative `goexml` XML documents into Fyne widgets.
 Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` standard.
 
+## Documentation
+
+Each page owns one responsibility:
+
+| Doc | Responsibility |
+|-----|----------------|
+| [docs/getting-started.md](docs/getting-started.md) | first window on screen, install, demo |
+| [docs/elements.md](docs/elements.md) | XML vocabulary: elements, attributes, children |
+| [docs/style.md](docs/style.md) | the `style` sub-language |
+| [docs/layout.md](docs/layout.md) | box/grid/border/scroll sizing semantics |
+| [docs/injection.md](docs/injection.md) | containers, slots, fragments, `BuildItem` |
+| [docs/lists.md](docs/lists.md) | `<vbox-expand>` Draft/Commit stacks |
+| [docs/runtime.md](docs/runtime.md) | the Go API of a built window |
+| [docs/codegen.md](docs/codegen.md) | embedding examples as Go trees, CI gates |
+| [docs/examples.md](docs/examples.md) | the example catalog |
+| [docs/goexml-standard-0.1.0.md](docs/goexml-standard-0.1.0.md) | the normative 0.1.0 standard |
+
 ## Example
 
 ```xml
