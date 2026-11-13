@@ -369,7 +369,7 @@ func Showcase() *goexml.Node {
 							&goexml.Node{
 								Type:  "vbox-expand",
 								Line:  42,
-								Attrs: map[string]string{"id": "feed", "scrollable": "", "spacing": "2", "style": "w-full h-24"},
+								Attrs: map[string]string{"id": "feed", "scrollable": "true", "spacing": "2", "style": "w-full h-24"},
 							},
 						},
 					},
@@ -414,7 +414,7 @@ func Widgets() *goexml.Node {
 									&goexml.Node{
 										Type:  "option",
 										Line:  7,
-										Attrs: map[string]string{"selected": "", "text": "Bandung", "value": "bdg"},
+										Attrs: map[string]string{"selected": "true", "text": "Bandung", "value": "bdg"},
 									},
 									&goexml.Node{
 										Type:  "option",

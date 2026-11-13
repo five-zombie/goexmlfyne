@@ -29,7 +29,7 @@ func listPng() []byte {
 // an explicit error.
 func TestListAppend(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
-		`<vbox-expand id="feed" style="bg-[#112233] rounded-md" scrollable="" /></window></goexml>`
+		`<vbox-expand id="feed" style="bg-[#112233] rounded-md" scrollable /></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
 		t.Fatalf("Decode: %v", err)

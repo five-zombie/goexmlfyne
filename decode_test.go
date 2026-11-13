@@ -42,7 +42,7 @@ func TestDecodeValid(t *testing.T) {
 func TestDecodeSelectTable(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
 		`<vbox id="b"><select id="s" onChange="OnPick">` +
-		`<option value="a" text="A"/><option value="b" text="B, special" selected=""/></select>` +
+		`<option value="a" text="A"/><option value="b" text="B, special" selected/></select>` +
 		`<table id="t"><row><cell text="Name"/><cell text="Age"/></row>` +
 		`<row><cell text="Ann"/><cell text="30"/></row></table>` +
 		`</vbox></window></goexml>`
@@ -131,8 +131,9 @@ func TestDecodeRejects(t *testing.T) {
 		{"button no handler attr", `<goexml version="0.1.0"><window title="x" size="1x1"><button id="a" text="x"/></window></goexml>`, "needs an onClick"},
 		{"dup region", `<goexml version="0.1.0"><window title="x" size="1x1"><border id="b"><top><label id="a" text="x"/></top><top/></border></window></goexml>`, "duplicate <top>"},
 		{"select no options", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"/></window></goexml>`, "at least one <option>"},
-		{"select two selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected=""/><option value="b" text="B" selected=""/></select></window></goexml>`, "only one selected"},
-		{"select valued selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected="true"/></select></window></goexml>`, "selected takes no value"},
+		{"select two selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected/><option value="b" text="B" selected/></select></window></goexml>`, "only one selected"},
+		{"select valued selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected="maybe"/></select></window></goexml>`, "selected must be the bare attribute or selected=\"true\""},
+		{"select empty selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected=""/></select></window></goexml>`, "selected must be the bare attribute or selected=\"true\""},
 		{"select option no value", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option text="A"/></select></window></goexml>`, "needs a value attribute"},
 		{"select bad child", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><label id="l" text="x"/></select></window></goexml>`, "not allowed inside <select>"},
 		{"select no handler attr", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s"><option value="a" text="A"/></select></window></goexml>`, "needs an onChange"},
@@ -177,7 +178,8 @@ func TestDecodeRejects(t *testing.T) {
 		{"select template without id", `<goexml version="0.1.0"><window title="x" size="1x1"><select onChange="P"><option value="v" text="{{a}}"/></select></window></goexml>`, "needs an id attribute"},
 		{"image bad fit", `<goexml version="0.1.0"><window title="x" size="1x1"><image id="i" src="a/b.png" fit="zoom"/></window></goexml>`, "fit must be"},
 		{"vbox-expand children", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f"><label id="l" text="x"/></vbox-expand></window></goexml>`, "takes no children"},
-		{"vbox-expand scrollable value", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable="true"/></window></goexml>`, "scrollable takes no value"},
+		{"vbox-expand scrollable value", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable="false"/></window></goexml>`, "scrollable must be the bare attribute or scrollable=\"true\""},
+		{"vbox-expand empty scrollable", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable=""/></window></goexml>`, "scrollable must be the bare attribute or scrollable=\"true\""},
 		{"style unknown", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="wide"/></window></goexml>`, "unknown style"},
 		{"style bad pad", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="p-9"/></window></goexml>`, "bad padding"},
 		{"style bad margin", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="m-9"/></window></goexml>`, "bad margin"},

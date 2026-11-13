@@ -22,7 +22,7 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 // schema. It returns the root node. Every error carries the 1-based
 // source line of the offending element.
 func Decode(data []byte) (*Node, error) {
-	d, lt, start, off, err := openEnvelope(data)
+	d, lt, start, off, err := openEnvelope(patchFlags(data))
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func Decode(data []byte) (*Node, error) {
 // schema rules apply as for a document. The fragment's ids join the
 // document's global id space, which Build and BuildItem enforce.
 func DecodeItem(data []byte) (*Node, error) {
-	d, lt, start, off, err := openEnvelope(data)
+	d, lt, start, off, err := openEnvelope(patchFlags(data))
 	if err != nil {
 		return nil, err
 	}
@@ -336,8 +336,11 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if len(n.Children) != 0 {
 			return nodeErr(n, "takes no children: fill it at runtime with Append")
 		}
-		if s, ok := n.Attrs["scrollable"]; ok && s != "" {
-			return nodeErr(n, "scrollable takes no value, got %q", s)
+		// The flag means true when bare (patchFlags rewrites it) or
+		// when valued "true"; the older empty form and any other
+		// value point the author at the accepted spellings.
+		if s, ok := n.Attrs["scrollable"]; ok && s != "true" {
+			return nodeErr(n, "scrollable must be the bare attribute or scrollable=\"true\", got %q", s)
 		}
 		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {
 			return nodeErr(n, "unknown column mode %q, want grid on vbox-expand", mode)
@@ -554,8 +557,8 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 			}
 			texts[o.Attr("text")] = o.Line
 			if sel, ok := o.Attrs["selected"]; ok {
-				if sel != "" {
-					return nodeErr(o, "selected takes no value, got %q", sel)
+				if sel != "true" {
+					return nodeErr(o, "selected must be the bare attribute or selected=\"true\", got %q", sel)
 				}
 				picked++
 			}

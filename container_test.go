@@ -354,7 +354,7 @@ func TestBuildItemSelect(t *testing.T) {
 	}
 	item, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox id="f">` +
 		`<select id="fsel" onChange="P"><option value="jkt" text="Jakarta"/>` +
-		`<option value="bdg" text="Bandung" selected=""/>` +
+		`<option value="bdg" text="Bandung" selected/>` +
 		`<option value="bdg3" text="City {{c}}"/></select></vbox></goexml-item>`))
 	if err != nil {
 		t.Fatalf("DecodeItem: %v", err)

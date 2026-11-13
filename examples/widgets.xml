@@ -4,7 +4,7 @@
       <label id="lblPick" text="Pick a city" />
       <select id="city" onChange="OnPick">
         <option value="jkt" text="Jakarta" />
-        <option value="bdg" text="Bandung" selected="" />
+        <option value="bdg" text="Bandung" selected />
         <option value="sby" text="Surabaya" />
       </select>
       <table id="users" onSelect="OnRow">

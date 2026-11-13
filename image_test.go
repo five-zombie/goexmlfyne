@@ -270,6 +270,94 @@ func TestOptionalID(t *testing.T) {
 	}
 }
 
+// TestBareFlags locks the flag contract: a bare scrollable or
+// selected parses as "true", in every position a start tag offers —
+// and the rewriter never touches lookalikes in comments, text, or
+// attribute values.
+func TestBareFlags(t *testing.T) {
+	// Bare forms survive both entries and arrive as "true".
+	for _, doc := range []string{
+		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable /></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable/></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand scrollable id="f"/></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable="true" /></window></goexml>`,
+	} {
+		root, err := Decode([]byte(doc))
+		if err != nil {
+			t.Fatalf("Decode(%s): %v", doc, err)
+		}
+		var exp *Node
+		var walk func(n *Node)
+		walk = func(n *Node) {
+			if n.Type == "vbox-expand" {
+				exp = n
+			}
+			for _, c := range n.Children {
+				walk(c)
+			}
+		}
+		walk(root)
+		if got := exp.Attr("scrollable"); got != "true" {
+			t.Fatalf("scrollable = %q, want \"true\" (doc %s)", got, doc)
+		}
+	}
+	// A selected option in the bare form is still the chosen one.
+	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<select id="s" onChange="P"><option value="a" text="A"/><option value="b" text="B" selected/></select></window></goexml>`))
+	if err != nil {
+		t.Fatalf("Decode selected: %v", err)
+	}
+	_ = root
+
+	// Lookalikes stay verbatim: a comment, an attribute value holding
+	// a flag's name or a > sign, and inner text must all survive the
+	// rewrite untouched.
+	doc := `<goexml version="0.1.0"><window title="x > scrollable" size="1x1">` +
+		`<!-- scrollable -->` +
+		`<vbox id="v"><label text="not selected really"/><text>scrollable</text>` +
+		`<select id="s" onChange="P"><option value="selected" text="A" selected="true"/></select>` +
+		`</vbox></window></goexml>`
+	n, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode lookalikes: %v", err)
+	}
+	var win *Node
+	for _, c := range n.Children {
+		if c.Type == "window" {
+			win = c
+		}
+	}
+	if got := win.Attr("title"); got != "x > scrollable" {
+		t.Fatalf("title = %q, want the raw value", got)
+	}
+	var opt *Node
+	var findOpt func(n *Node)
+	findOpt = func(n *Node) {
+		if n.Type == "option" {
+			opt = n
+		}
+		for _, c := range n.Children {
+			findOpt(c)
+		}
+	}
+	findOpt(win)
+	if got := opt.Attr("value"); got != "selected" {
+		t.Fatalf("option value = %q, want \"selected\"", got)
+	}
+	if got := opt.Attr("selected"); got != "true" {
+		t.Fatalf("explicit selected = %q, want \"true\"", got)
+	}
+	// Fragments patch the same way: a bare flag on the fragment root's
+	// child.
+	frag, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox-expand id="f" scrollable/></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	if got := frag.Children[0].Attr("scrollable"); got != "true" {
+		t.Fatalf("fragment scrollable = %q, want \"true\"", got)
+	}
+}
+
 // TestSetImageWrongNode locks the node-kind guard.
 func TestSetImageWrongNode(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +

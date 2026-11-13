@@ -131,7 +131,7 @@ func TestBuildBorder(t *testing.T) {
 func TestBuildSelectTable(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
 		`<vbox id="b"><select id="s" onChange="OnPick">` +
-		`<option value="a" text="A"/><option value="b" text="B" selected=""/></select>` +
+		`<option value="a" text="A"/><option value="b" text="B" selected/></select>` +
 		`<table id="t"><row><cell text="Name"/><cell text="Age"/></row>` +
 		`<row><cell text="Ann"/><cell text="30"/></row>` +
 		`<row><cell text="Bo"/><cell text="25"/></row></table>` +
