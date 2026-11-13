@@ -169,7 +169,7 @@ func (i *Item) Find(id string) fyne.CanvasObject {
 	return i.byID[id]
 }
 
-// guardLocked mirrors the scope setters on Item: a retired item
+// guard mirrors the scope setters on Item: a retired item
 // rejects every setter explicitly.
 func (i *Item) guard() error {
 	if i.retired {

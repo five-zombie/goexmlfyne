@@ -597,8 +597,8 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		for _, o := range n.Children {
 			options = append(options, o.Attr("text"))
 			if _, ok := o.Attrs["selected"]; ok {
-				// Validation rejects a valued selected; an empty
-				// selected="" marks the chosen option.
+				// Validation accepts only the bare selected or ="true";
+				// that flag marks the chosen option.
 				selected = o.Attr("text")
 			}
 		}
