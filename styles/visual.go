@@ -481,9 +481,15 @@ func (l *visualLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		// A stroked rectangle draws centered on its path: at the plain
 		// bounds half the thickness would hang outside the element.
 		// Inset by half the width so the stroke's outer edge sits on
-		// the bounds — the same geometry the per-side paths have.
+		// the bounds, and shrink the radius by half the width so the
+		// corner arcs stay concentric with the background — the outer
+		// edge then follows the bg silhouette at the corners too.
 		s := l.v.BorderW.Top
-		clamped.applyTo(objects[i].(*canvas.Rectangle))
+		strokeC := Corners{
+			maxF(clamped.TL - s/2), maxF(clamped.TR - s/2),
+			maxF(clamped.BR - s/2), maxF(clamped.BL - s/2),
+		}
+		strokeC.applyTo(objects[i].(*canvas.Rectangle))
 		objects[i].Move(fyne.NewPos(s/2, s/2))
 		objects[i].Resize(fyne.NewSize(maxF(w-s), maxF(h-s)))
 		i++

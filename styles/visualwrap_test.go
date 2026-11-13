@@ -121,12 +121,35 @@ func TestNewVisualStrokeGeometry(t *testing.T) {
 	if stroke.Size() != (fyne.NewSize(96, 56)) {
 		t.Fatalf("stroke size = %v, want 96x56", stroke.Size())
 	}
-	if stroke.CornerRadius != 8 {
-		t.Fatalf("stroke radius = %v, want 8", stroke.CornerRadius)
+	// Radius shrinks by half the width: the inset rect's corner arcs
+	// stay concentric with the style's radius, so the stroke's outer
+	// edge follows the silhouette (8 px radius at the bounds).
+	if stroke.CornerRadius != 6 {
+		t.Fatalf("stroke radius = %v, want 8-4/2 = 6", stroke.CornerRadius)
 	}
 	if stroke.TopLeftCornerRadius != 0 || stroke.BottomRightCornerRadius != 0 {
 		t.Fatalf("per-corner radius overrides = %v/%v, want zeroed by the uniform path",
 			stroke.TopLeftCornerRadius, stroke.BottomRightCornerRadius)
+	}
+
+	// Concentricity against a real background: the bg keeps the style
+	// radius (clamped), the stroke path's radius is smaller by half
+	// the width, and the inset matches — outer edge on the silhouette.
+	bgSt, err := ParseStyle("bg-[#112233] b-4 b-[#00ff00] rounded-md")
+	if err != nil {
+		t.Fatalf("ParseStyle: %v", err)
+	}
+	w4 := NewVisual(bgSt.Vis, canvas.NewRectangle(color.NRGBA{A: 255}))
+	c4 := w4.(*fyne.Container)
+	w4.Resize(fyne.NewSize(100, 60))
+	bg4 := c4.Objects[0].(*canvas.Rectangle)
+	stroke4 := c4.Objects[1].(*canvas.Rectangle)
+	if bg4.CornerRadius != 8 || stroke4.CornerRadius != 6 {
+		t.Fatalf("concentric radii = bg %v / stroke %v, want 8 / 8-4/2=6",
+			bg4.CornerRadius, stroke4.CornerRadius)
+	}
+	if stroke4.Position() != (fyne.NewPos(2, 2)) {
+		t.Fatalf("stroke pos = %v, want inset (2,2)", stroke4.Position())
 	}
 
 	// The per-side path keeps its own geometry: edges hug the bounds.
