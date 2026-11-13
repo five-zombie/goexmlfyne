@@ -3,6 +3,12 @@
 The `goexml` standard is the XML format. The `goexml-fyne` project parses
 this format into Fyne widgets.
 
+> **Amendment, 13 November 2026 (still version 0.1.0):** the `style`
+> sub-language gains the **visual layer** — a background (`bg-[#rrggbb]`),
+> borders (`b-`), and rounded corners (`rounded`) drawn behind an
+> element's content. See the *Visual* block in the Style section. The
+> element and attribute lists are unchanged.
+
 ## Minimal example
 
 ```xml
@@ -26,10 +32,13 @@ this format into Fyne widgets.
   (any widget) and **exactly one** `<slot>` somewhere in its subtree.
   Containers never nest: a container must not be a descendant of a
   container within one file. Multiple sibling containers are fine.
-- `slot`: the hole filled from Go. A leaf that accepts only `style`
-  (`w-*`, `h-N`, padding, margin); `Build` requires content for every
-  container id, and `SetContent` on the built `*Container` replaces the
-  slot's content. A slot outside any `<container>` is rejected.
+- `slot`: the hole filled from Go. A leaf whose `style` takes the same
+  utilities as any widget: `w-*`, `h-N`, padding and margin decide the
+  area it claims. The visual utilities (`bg-`, `b-`, `rounded`) parse
+  but paint nothing on a slot — a slot is a hole, only its filled
+  content shows. `Build` requires content for every container id, and
+  `SetContent` on the built `*Container` replaces the slot's content. A
+  slot outside any `<container>` is rejected.
 - `goexml-item`: the root of an injectable fragment, requires
   `version="0.1.0"` — the fragment envelope. It holds **exactly one**
   child widget (a window is not allowed inside); the same schema rules
@@ -214,13 +223,64 @@ Example:
 ```
 
 Unknown `style` utilities are rejected by the parser. N outside 0-4 is
-rejected.
+rejected (border widths below are the exception: direct pixels).
+
+### Visual
+
+On top of the utilities above, a style can attach a **visual layer**
+behind an element's content: a background, borders, and rounded
+corners. The layer paints inside the element's bounds — it never moves
+or grows the content, and padding stays the inner spacing on top of
+it:
+
+- `bg-[#rrggbb]`: a solid background behind the whole element,
+  including its padding area. At most one `bg-` token per element.
+- `b-[#rrggbb]`: border color for all four sides; `bt-`, `br-`, `bl-`,
+  `bb-[#rrggbb]` color one side.
+- `b-N`: border width for all four sides, **direct pixels** 0-16
+  (`b-1` is a 1 px border — border widths are not the 4 px step grid).
+  `bt-N`, `br-N`, `bl-N`, `bb-N` size one side.
+- Rounded corners: `rounded` (4 px), `rounded-md` (8 px),
+  `rounded-xl` (16 px), `rounded-N` (N px, 1-999); per side
+  `rounded-t-*`, `rounded-b-*`, `rounded-l-*`, `rounded-r-*`; per
+  corner `rounded-tl-*`, `rounded-tr-*`, `rounded-bl-*`,
+  `rounded-br-*`. A side or corner form requires an explicit size.
+
+Rules of the visual layer:
+
+- Every side carrying a border **width** must carry a border **color**,
+  and the reverse — `b-2` alone, a color alone, or a mix that leaves
+  some sides half-configured is rejected, as is a colored side with
+  zero width. A half-configured border must not silently render as
+  nothing.
+- A border drawn with rounded corners is a single stroked rounded
+  rectangle, which can only be uniform: **`rounded` with a border
+  requires a uniform border** — `b-N` only, no per-side variation. A
+  rounded background with no border, and a per-side border without
+  rounding, are both fine.
+- A radius larger than half the element is clamped at render to half
+  the smaller dimension.
+- Border widths and corners draw **inside** the element's bounds: they
+  do not change the element's size or its neighbors' positions.
+- `rounded` with nothing to round — no background and no border — is
+  rejected.
+
+Example:
+
+```xml
+<vbox id="card" style="bg-[#0f172a] b-2 b-[#475569] rounded-md p-2">
+  <label id="t" text="Card" />
+</vbox>
+```
 
 ## Rules
 
 - One file, one `window`.
 - Every widget has a unique `id` of letters, digits, and underscore.
 - Tags or attributes outside the lists are rejected by the parser.
+  The `style` attribute is its own small language: its utilities are
+  listed in the Style section, and an unknown one there is rejected
+  the same way.
 - Comments are allowed anywhere. Directives and processing
   instructions are only allowed in the prolog; inside an element they
   are rejected.
