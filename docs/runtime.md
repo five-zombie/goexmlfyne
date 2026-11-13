@@ -44,10 +44,12 @@ win, err := root.ApplyActResources(goexml.BuildAct(handlers), nil, res)
 ```go
 type Window struct {
     Title   string           // from the XML
-    Size    fyne.Size        // from the WxH attribute
     Content fyne.CanvasObject // the root Fyne object to show
 }
 ```
+
+The window's size is set from Go: `Resize` on the `fyne.Window`
+after `Build`; without it the toolkit default applies.
 
 - `Find(id)` returns the built object for an id, or nil. The concrete
   type depends on the element: `*widget.Label` for label/text,

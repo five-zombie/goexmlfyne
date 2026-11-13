@@ -16,9 +16,10 @@ children rules and value formats. This is the reference for what
 
 ## Window
 
-`<window title size>` — `title` is required, `size` is `WxH`
-(`800x600`). Holds exactly one child; wrap several widgets in a
-`<vbox>`.
+`<window title>` — `title` is required. The window's size is set
+from Go (`Resize` on the `fyne.Window` after `Build`); without it the
+toolkit default applies. Holds exactly one child; wrap several
+widgets in a `<vbox>`.
 
 ## Structure elements
 

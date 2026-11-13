@@ -24,7 +24,7 @@ Each page owns one responsibility:
 
 ```xml
 <goexml version="0.1.0">
-  <window title="Form" size="800x600">
+  <window title="Form">
     <vbox id="main" style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Enter name" />
       <entry id="inpName" text="" placeholder="Name" style="w-full" />
@@ -39,7 +39,7 @@ Each page owns one responsibility:
 
 ## Elements
 
-- `window`: one per file; `title`, `size` (e.g. `800x600`), and exactly
+- `window`: one per file; `title`, and exactly
   one child — wrap multiple children in a `vbox` yourself.
 - `vbox`, `hbox`: vertical / horizontal containers with `spacing`,
   `align`, and optional `justify` (inner padding comes from the
@@ -227,7 +227,6 @@ func main() {
     }
 
     w := a.NewWindow(win.Title)
-    w.Resize(win.Size)
     w.SetContent(win.Content)
     w.ShowAndRun()
 }
@@ -270,7 +269,6 @@ func main() {
     }
 
     w := a.NewWindow(win.Title)
-    w.Resize(win.Size)
     w.SetContent(win.Content)
     w.ShowAndRun()
 }

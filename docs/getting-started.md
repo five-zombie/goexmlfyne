@@ -23,7 +23,7 @@ bindings, text shaping) as usual for a GUI toolkit.
 
 ```xml
 <goexml version="0.1.0">
-  <window title="Hello" size="400x200">
+  <window title="Hello">
     <vbox id="root" spacing="4" align="start">
       <label id="lblTitle" text="Hello" />
       <button id="btnClick" text="Click" onClick="OnClick" />
@@ -60,7 +60,6 @@ func main() {
 		log.Fatal(err)
 	}
 	w := a.NewWindow(win.Title)
-	w.Resize(win.Size)
 	w.SetContent(container.NewScroll(win.Content))
 	w.ShowAndRun()
 }
@@ -76,8 +75,10 @@ construction inside `Build` measures text, which needs a running app.
 2. `ApplyAct` renders the decoded tree into a `*goexml.Window`. Every
    handler named by `onClick`/`onChange`/`onSelect` must be present in
    the map — a missing name fails the build.
-3. `win.Content` is the root Fyne object; `win.Title` and `win.Size`
-   come from the XML.
+3. `win.Content` is the root Fyne object; `win.Title` names the
+   window. The window's size is set from Go — call `Resize` on the
+   `fyne.Window` after `Build` if you want a fixed size; without it
+   the toolkit default applies.
 
 ## Relative paths
 

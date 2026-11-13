@@ -71,12 +71,21 @@ this format into Fyne widgets.
 > untouched — they belong to the style layer. A hand-built tree that
 > still carries a `<border>` node is rejected at decode ("was removed
 > from the schema; use vbox/hbox") and at build ("cannot build").
+>
+> **Ninth amendment, 13 November 2026 (still version 0.1.0):** the
+> `size="WxH"` attribute is removed from `<window>`. The author was
+> forced to write a size on every screen; sizing is a Go concern —
+> call `Resize` on the `fyne.Window` after `Build`, or leave it and
+> the toolkit default applies. A document that still carries `size`
+> fails decode with "size is set from Go: call Resize on the
+> fyne.Window after Build". `title` stays required; `Window` no
+> longer exposes a `Size` field.
 
 ## Minimal example
 
 ```xml
 <goexml version="0.1.0">
-  <window title="Hello" size="800x600">
+  <window title="Hello">
     <vbox>
       <label text="Hello" />
       <button text="Click" onClick="OnClick" />
@@ -89,8 +98,9 @@ this format into Fyne widgets.
 ## Tags
 
 - `goexml`: root, requires `version="0.1.0"`.
-- `window`: one per file, `title`, `size`, exactly one child — wrap
-  multiple children in a `vbox` yourself.
+- `window`: one per file, `title`, exactly one child — wrap
+  multiple children in a `vbox` yourself. The window's size is set
+  from Go (`Resize` on the `fyne.Window`); the XML carries no size.
 - `container`: an injection frame, requires `id`. It holds free design
   (any widget) and **exactly one** `<slot>` somewhere in its subtree.
   Containers never nest: a container must not be a descendant of a
@@ -181,7 +191,7 @@ this format into Fyne widgets.
 
 ```xml
 <goexml version="0.1.0">
-  <window title="Hello" size="800x600">
+  <window title="Hello">
     <vbox style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Hello" visible="true" />
       <button id="btnClick" text="Click" onClick="OnClick" />
@@ -194,7 +204,7 @@ this format into Fyne widgets.
 
 ```xml
 <goexml version="0.1.0">
-  <window title="Form" size="800x600">
+  <window title="Form">
     <vbox style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Enter name" />
       <entry id="inpName" text="" placeholder="Name" style="w-full" />
