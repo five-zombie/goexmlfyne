@@ -49,15 +49,20 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   `h-N`) are not supported: a table always sizes to its content.
 - `rect color="#rrggbb"`: a color box for lines and divider bands.
 - `vbox-expand scrollable? spacing? align? justify? column="grid"?`:
-  an append-only stack. The XML reserves the place; items are built at
-  runtime from `goexml-item` fragments via `Find(id)` + `List.Append`
-  — per-item slot contents and image resources, the fragment's ids
-  private to each item (the same fragment stacks many times). `Clear`
-  empties the stack and retires the handles. It lays items out with
-  the same engine as a static `vbox`: `spacing` sets the gap between
-  items, `align`/`justify` position them, and `column="grid"` +
-  `min`/`max` flow them into columns. `scrollable` wraps the stack so
-  `h-N`/`h-full` bound
+  a stack of items drafted at runtime. The XML reserves the place;
+  items are built from `goexml-item` fragments via `Find(id)` +
+  `List.Draft`, filled at your own pace (templates, slots via
+  `Container.SetContent`, images via `SetImageRes`), then stacked
+  with `List.Commit`. The fragment's ids are private to each item
+  (the same fragment drafts many times), and `<image src="key">`
+  resolves against the build's resource set. `Commit` refuses an
+  unfilled slot — a committed row is complete on screen — while a
+  slot image without `src` may stay pending, audited by
+  `UnfilledImages`. `Clear` empties the stack and retires the
+  handles. It lays items out with the same engine as a static `vbox`:
+  `spacing` sets the gap between items, `align`/`justify` position
+  them, and `column="grid"` + `min`/`max` flow them into columns.
+  `scrollable` wraps the stack so `h-N`/`h-full` bound
   its height; without size style the stack sizes to its items. The
   visual layer applies like on every widget.
 - `image src? fit?`: a picture. With `src`, it names a registered

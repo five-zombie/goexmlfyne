@@ -46,6 +46,18 @@ this format into Fyne widgets.
 > `<vbox-expand scrollable />` and `scrollable="true"` spell the same
 > thing. The older empty form (`scrollable=""`) and any other value
 > are rejected with a migration hint naming the accepted spellings.
+>
+> **Seventh amendment, 13 November 2026 (still version 0.1.0):** the
+> runtime flow for `vbox-expand` becomes draft/commit. `List.Draft`
+> builds a fragment into an item that is not yet on the screen; the
+> application fills it — text templates, slots through
+> `Container.SetContent`, images through `SetImageRes` — and hands it
+> to `List.Commit`, which refuses an unfilled slot so a committed row
+> is complete on screen. `List.Append(frag, contents, resources)` is
+> gone: slot fills and image payloads were per-row data either way,
+> and the setters express it without map literals in the loop. A
+> fragment's `<image src="key">` resolves against the build's
+> resource set.
 
 ## Minimal example
 
@@ -83,11 +95,11 @@ this format into Fyne widgets.
   apply, and its ids join the document's global id space. An item is
   only legal as a fragment root, never nested anywhere.
 - `vbox`, `hbox`: vertical and horizontal containers.
-- `vbox-expand`: an append-only vertical stack of items built at
-  runtime from `goexml-item` fragments. Takes no children and no
+- `vbox-expand`: a stack of items drafted at runtime from
+  `goexml-item` fragments. Takes no children and no
   items in the document; its layout attributes mirror the static
   `vbox` — `spacing`, `align`, `justify`, and `column="grid"` with
-  `min`/`max` — applied to the appended items, and the bare
+  `min`/`max` — applied to the committed items, and the bare
   `scrollable` attribute wraps the stack in a scroll so `h-*` bounds
   its visible height. A third amendment element — see the amendment
   block.
