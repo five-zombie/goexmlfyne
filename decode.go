@@ -643,6 +643,12 @@ func checkAttrs(n *Node, ids map[string]int) error {
 			if name == "padding" && (n.Type == "vbox" || n.Type == "hbox") {
 				return nodeErr(n, "padding moved to style: use the p-N utilities, e.g. p-2 for 8px")
 			}
+			// The size attribute is gone from <window>: point old
+			// documents at the Go API instead of a generic
+			// unknown-attribute error.
+			if name == "size" && n.Type == "window" {
+				return nodeErr(n, "size is set from Go: call Resize on the fyne.Window after Build")
+			}
 			unknown = append(unknown, name)
 		}
 	}
@@ -732,9 +738,6 @@ func checkValues(n *Node) error {
 		if t := n.Attr("title"); t == "" {
 			return nodeErr(n, "needs a title attribute")
 		}
-		if _, _, err := parseSize(n, n.Attr("size")); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -756,18 +759,4 @@ func parseHexColor(n *Node, s string) (r, g, b uint8, err error) {
 		v[i] = uint8(n)
 	}
 	return v[0], v[1], v[2], nil
-}
-
-// parseSize parses a "WxH" size such as "800x600".
-func parseSize(n *Node, s string) (w, h int, err error) {
-	parts := strings.Split(s, "x")
-	if len(parts) != 2 {
-		return 0, 0, nodeErr(n, "size must look like 800x600, got %q", s)
-	}
-	w, err1 := strconv.Atoi(parts[0])
-	h, err2 := strconv.Atoi(parts[1])
-	if err1 != nil || err2 != nil || w <= 0 || h <= 0 {
-		return 0, 0, nodeErr(n, "size must look like 800x600, got %q", s)
-	}
-	return w, h, nil
 }

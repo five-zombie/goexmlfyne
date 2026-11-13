@@ -87,7 +87,7 @@ func TestGeneratedBuilds(t *testing.T) {
 		if s.file == "../examples/page-body.xml" {
 			// A fragment builds into a host window, like any item.
 			hostRoot, err := goexml.Decode([]byte(
-				`<goexml version="0.1.0"><window title="host" size="1x1">` +
+				`<goexml version="0.1.0"><window title="host">` +
 					`<label id="hostlbl" text="x"/></window></goexml>`))
 			if err != nil {
 				t.Fatal(err)
@@ -105,7 +105,7 @@ func TestGeneratedBuilds(t *testing.T) {
 			// A fragment appends into a <vbox-expand>, its ids
 			// private to each item.
 			hostRoot, err := goexml.Decode([]byte(
-				`<goexml version="0.1.0"><window title="host" size="1x1">` +
+				`<goexml version="0.1.0"><window title="host">` +
 					`<vbox-expand id="feed"/></window></goexml>`))
 			if err != nil {
 				t.Fatal(err)

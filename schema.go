@@ -14,7 +14,7 @@ var commonAttrs = []string{"id", "visible", "style"}
 var tagAttrs = map[string][]string{
 	"goexml":      {},
 	"goexml-item": {},
-	"window":      {"title", "size"},
+	"window":      {"title"},
 	"container":   {},
 	"slot":        {"style"},
 	"vbox":        {"spacing", "align", "justify", "column", "min", "max"},

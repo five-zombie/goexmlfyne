@@ -20,8 +20,6 @@ import (
 type Window struct {
 	// Title is the window title from the XML.
 	Title string
-	// Size is the window size from the WxH attribute.
-	Size fyne.Size
 	// Content is the root Fyne object to show.
 	Content fyne.CanvasObject
 	// The widget-facing registry the setters dispatch on, embedded so
@@ -88,10 +86,6 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 	if len(w.Children) == 0 {
 		return nil, nodeErr(w, "needs content")
 	}
-	sw, sh, err := parseSize(w, w.Attr("size"))
-	if err != nil {
-		return nil, err
-	}
 	ctx := &buildCtx{
 		tap:          tap,
 		resources:    resources,
@@ -123,7 +117,6 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 	}
 	win := &Window{
 		Title:   w.Attr("title"),
-		Size:    fyne.NewSize(float32(sw), float32(sh)),
 		Content: content,
 		widgetScope: &widgetScope{
 			resources:    resources,

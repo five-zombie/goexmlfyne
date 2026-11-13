@@ -15,7 +15,7 @@ import (
 // convenience path; plain ApplyAct keeps rejecting them (Build requires
 // content for every slot).
 func TestApplyActContents(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<container id="page"><slot/></container></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {

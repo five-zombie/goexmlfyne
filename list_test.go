@@ -43,7 +43,7 @@ func commitOne(t *testing.T, l *List, frag *Node) *Item {
 // Commit stacks a complete row — and every broken input is an
 // explicit error.
 func TestListDraftCommit(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed" style="bg-[#112233] rounded-md" scrollable /></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -76,7 +76,7 @@ func TestListDraftCommit(t *testing.T) {
 	}
 
 	// Deterministic draft errors before anything valid.
-	badDoc, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x"/></window></goexml>`))
+	badDoc, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x"><label id="l" text="x"/></window></goexml>`))
 	for _, tc := range []struct {
 		name string
 		node *Node
@@ -151,7 +151,7 @@ func TestListDraftCommit(t *testing.T) {
 		t.Fatalf("error %q does not refuse the double commit", err)
 	}
 	// A foreign draft is refused here.
-	otherRoot, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="100x100"><vbox-expand id="other"/></window></goexml>`))
+	otherRoot, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x"><vbox-expand id="other"/></window></goexml>`))
 	otherWin, _ := Build(otherRoot, map[string]func(){"OnRow": func() {}}, nil, res)
 	other := otherWin.Find("other").(*List)
 	stray, err := other.Draft(frag)
@@ -222,7 +222,7 @@ func TestListDraftCommit(t *testing.T) {
 // touched: select setters (SetValue, SelectValue, SetValueFormat) and
 // the per-item image payload (SetImageRes), all scoped to one item.
 func TestListItemSetters(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, map[string]func(){"OnPick": func() {}}, nil, nil)
@@ -301,7 +301,7 @@ func TestListItemSetters(t *testing.T) {
 // slot instead of storing a nil object, so Commit refuses it as an
 // unfilled slot — never a nil object that panics the renderer.
 func TestListSlotNil(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)
@@ -341,7 +341,7 @@ func TestListSlotNil(t *testing.T) {
 // and the single-draft escape hatch, plus the cheap guards the audit
 // flagged untested: Commit(nil) and Draft's structural errors.
 func TestListDiscardAndSetContent(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, map[string]func(){"OnRow": func() {}}, nil, nil)
@@ -421,7 +421,7 @@ func TestListDiscardAndSetContent(t *testing.T) {
 	if err := feed.Discard(it); err == nil || !strings.Contains(err.Error(), "already committed") {
 		t.Fatalf("error %q does not refuse a committed item", err)
 	}
-	otherRoot, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="100x100"><vbox-expand id="o"/></window></goexml>`))
+	otherRoot, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x"><vbox-expand id="o"/></window></goexml>`))
 	otherWin, _ := Build(otherRoot, map[string]func(){"OnRow": func() {}}, nil, nil)
 	foreign := otherWin.Find("o").(*List)
 	theirs, _ := foreign.Draft(frag)
@@ -442,7 +442,7 @@ func TestListDiscardAndSetContent(t *testing.T) {
 // with several unfilled slots the message always names the same one,
 // the way decode names unknown attributes.
 func TestCommitNamesDeterministicSlot(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)
@@ -475,7 +475,7 @@ func TestCommitNamesDeterministicSlot(t *testing.T) {
 // TestListNonScrollable locks the plain box variant: same handle, no
 // scroll wrapper, and the visual layer still applies.
 func TestListNonScrollable(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed" style="bg-[#112233] h-8"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)
@@ -495,7 +495,7 @@ func TestListNonScrollable(t *testing.T) {
 // and every committed item picks up its style hint through the
 // listLayout adapter.
 func TestListSpacingAlign(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="feed" spacing="8" align="end"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)
@@ -529,7 +529,7 @@ func TestListSpacingAlign(t *testing.T) {
 // items flow into columns and wrap rows, with per-item hints still
 // applied.
 func TestListGrid(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox-expand id="grid" column="grid" min="2" max="2" spacing="4"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)

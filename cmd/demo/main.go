@@ -83,7 +83,6 @@ func main() {
 		}
 	}
 	w := a.NewWindow(win.Title)
-	w.Resize(win.Size)
 	// Tall content (for example the ten thousand word showcase) does
 	// not fit a real window, so scroll instead of letting Fyne clamp it.
 	w.SetContent(container.NewScroll(win.Content))

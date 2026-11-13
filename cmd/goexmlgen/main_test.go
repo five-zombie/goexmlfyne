@@ -62,7 +62,7 @@ func TestGenerateParsesAndDeterministic(t *testing.T) {
 func TestGenerateDirectoryInput(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "b.xml", docA)
-	writeFile(t, dir, "a.xml", `<goexml version="0.1.0"><window title="y" size="2x2"><label id="a2" text="y"/></window></goexml>`)
+	writeFile(t, dir, "a.xml", `<goexml version="0.1.0"><window title="y"><label id="a2" text="y"/></window></goexml>`)
 	src := generate(t, []string{dir}, filepath.Join(dir, "gen"))
 	if !strings.Contains(src, "func A() *goexml.Node") || !strings.Contains(src, "func B() *goexml.Node") {
 		t.Fatalf("directory files not both generated:\n%s", src)
@@ -88,10 +88,10 @@ func TestGenerateDuplicateID(t *testing.T) {
 	dir := t.TempDir()
 	inA := writeFile(t, dir, "a.xml", docA)
 	inB := writeFile(t, dir, "b.xml",
-		`<goexml version="0.1.0"><window title="y" size="2x2"><label id="b1" text="y"/></window></goexml>`)
+		`<goexml version="0.1.0"><window title="y"><label id="b1" text="y"/></window></goexml>`)
 	// Same id a1 in both files, different files: rejected.
 	inB2 := writeFile(t, dir, "c.xml",
-		`<goexml version="0.1.0"><window title="z" size="2x2"><label id="a1" text="z"/></window></goexml>`)
+		`<goexml version="0.1.0"><window title="z"><label id="a1" text="z"/></window></goexml>`)
 	err := run([]string{inA, inB2}, filepath.Join(dir, "gen"), "gen")
 	if err == nil || !strings.Contains(err.Error(), `id "a1" is already used by`) {
 		t.Fatalf("duplicate id across files: err = %v", err)
@@ -108,7 +108,7 @@ func TestGenerateNameCollision(t *testing.T) {
 	dir := t.TempDir()
 	inA := writeFile(t, dir, "page-body.xml", docA)
 	inB := writeFile(t, dir, "page_body.xml",
-		`<goexml version="0.1.0"><window title="y" size="2x2"><label id="b1" text="y"/></window></goexml>`)
+		`<goexml version="0.1.0"><window title="y"><label id="b1" text="y"/></window></goexml>`)
 	err := run([]string{inA, inB}, filepath.Join(dir, "gen"), "gen")
 	if err == nil || !strings.Contains(err.Error(), "already used by another input file") {
 		t.Fatalf("name collision: err = %v", err)

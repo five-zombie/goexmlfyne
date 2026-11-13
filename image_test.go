@@ -39,7 +39,7 @@ func TestBuildImage(t *testing.T) {
 	}
 	build := func(t *testing.T, style string) fyne.CanvasObject {
 		t.Helper()
-		doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<image id="img" src="` + style + `"/></window></goexml>`
 		root, err := Decode([]byte(doc))
 		if err != nil {
@@ -64,7 +64,7 @@ func TestBuildImage(t *testing.T) {
 		t.Fatalf("min size = %v, want 3x2 intrinsic", min)
 	}
 	// The style path still wraps it: dimensions and the visual layer.
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="v"><image id="img" src="dot" style="w-full h-8 bg-[#112233] rounded-md"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -95,7 +95,7 @@ func TestBuildImage(t *testing.T) {
 		"fill":  canvas.ImageFillStretch,
 	}
 	for fit, want := range fitCases {
-		doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<image id="img" src="dot" fit="` + fit + `"/></window></goexml>`
 		root, _ := Decode([]byte(doc))
 		w, err := Build(root, nil, nil, res)
@@ -112,7 +112,7 @@ func TestBuildImage(t *testing.T) {
 		{"unknown resource", "missing", "unknown image resource"},
 		{"non-image resource", "junk.txt", "bad image resource"},
 	} {
-		doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<image id="img" src="` + tc.src + `"/></window></goexml>`
 		root, _ := Decode([]byte(doc))
 		_, err := Build(root, nil, nil, res)
@@ -135,7 +135,7 @@ func TestSetImage(t *testing.T) {
 		"dot": fyne.NewStaticResource("dot.png", pngBytes(3, 2, color.NRGBA{R: 255, A: 255})),
 		"bar": fyne.NewStaticResource("bar.png", pngBytes(4, 6, color.NRGBA{B: 255, A: 255})),
 	}
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<image id="img" src="dot"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, res)
@@ -177,7 +177,7 @@ func TestSetImage(t *testing.T) {
 // the image empty, the setters fill it, and UnfilledImages reports
 // orphans so a slot can never be forgotten.
 func TestSetImageSlot(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="v"><image id="slot" fit="cover" style="w-full h-8"/></vbox></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)
@@ -243,7 +243,7 @@ func TestSetImageSlot(t *testing.T) {
 // elements build and render without an id, stay invisible to Find and
 // the setters, and remain in the visual layer like any widget.
 func TestOptionalID(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="v">` +
 		`<rect color="#333333" style="h-1"/>` +
 		`<label text="static"/>` +
@@ -277,10 +277,10 @@ func TestOptionalID(t *testing.T) {
 func TestBareFlags(t *testing.T) {
 	// Bare forms survive both entries and arrive as "true".
 	for _, doc := range []string{
-		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable /></window></goexml>`,
-		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable/></window></goexml>`,
-		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand scrollable id="f"/></window></goexml>`,
-		`<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable="true" /></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x"><vbox-expand id="f" scrollable /></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x"><vbox-expand id="f" scrollable/></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x"><vbox-expand scrollable id="f"/></window></goexml>`,
+		`<goexml version="0.1.0"><window title="x"><vbox-expand id="f" scrollable="true" /></window></goexml>`,
 	} {
 		root, err := Decode([]byte(doc))
 		if err != nil {
@@ -302,7 +302,7 @@ func TestBareFlags(t *testing.T) {
 		}
 	}
 	// A selected option in the bare form is still the chosen one.
-	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1">` +
+	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x">` +
 		`<select id="s" onChange="P"><option value="a" text="A"/><option value="b" text="B" selected/></select></window></goexml>`))
 	if err != nil {
 		t.Fatalf("Decode selected: %v", err)
@@ -314,7 +314,7 @@ func TestBareFlags(t *testing.T) {
 	// > sign, and inner text must all survive the rewrite untouched.
 	// The CDATA interior is real text — a rewrite there would corrupt
 	// the document, not just an ignored token.
-	doc := `<goexml version="0.1.0"><window title="x > scrollable" size="1x1">` +
+	doc := `<goexml version="0.1.0"><window title="x > scrollable">` +
 		`<!-- <vbox scrollable> -->` +
 		`<vbox id="v"><label text="not selected really"/>` +
 		`<text><![CDATA[usage: <vbox scrollable> and <option selected>]]></text>` +
@@ -374,7 +374,7 @@ func TestBareFlags(t *testing.T) {
 // calls.
 func TestBuildItemKeepsDocumentResources(t *testing.T) {
 	res := map[string]fyne.Resource{"logo": fyne.NewStaticResource("logo.png", listPng())}
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="v"><image id="logo" src="logo"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -413,7 +413,7 @@ func TestBuildItemKeepsDocumentResources(t *testing.T) {
 // payloads alike stay out of the window's state.
 func TestBuildItemFailureIsAtomic(t *testing.T) {
 	res := map[string]fyne.Resource{"logo": fyne.NewStaticResource("logo.png", listPng())}
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<label id="l" text="x"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, res)
@@ -449,7 +449,7 @@ func TestBuildItemFailureIsAtomic(t *testing.T) {
 
 // TestSetImageWrongNode locks the node-kind guard.
 func TestSetImageWrongNode(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<label id="l" text="x"/></window></goexml>`
 	root, _ := Decode([]byte(doc))
 	w, err := Build(root, nil, nil, nil)

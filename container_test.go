@@ -9,7 +9,7 @@ import (
 )
 
 func containerDoc(id string) string {
-	return `<goexml version="0.1.0"><window title="x" size="100x100">` +
+	return `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b">` +
 		`<container id="` + id + `"><vbox id="wrap"><label id="h" text="Head"/><slot style="h-2"/><label id="ft" text="Foot"/></vbox></container>` +
 		`</vbox></window></goexml>`
@@ -18,7 +18,7 @@ func containerDoc(id string) string {
 // visible="false" on a container is enforced like on any widget: the
 // container is hidden, and a padded wrapper hides with it.
 func TestContainerVisibleFalse(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><container id="page" visible="false" style="p-2"><slot/></container>` +
 		`<label id="after" text="after"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -44,7 +44,7 @@ func TestContainerVisibleFalse(t *testing.T) {
 		t.Fatal("sibling of the hidden container got hidden too")
 	}
 	// The default stays visible.
-	doc = `<goexml version="0.1.0"><window title="x" size="1x1">` +
+	doc = `<goexml version="0.1.0"><window title="x">` +
 		`<container id="page"><slot/></container></window></goexml>`
 	root, err = Decode([]byte(doc))
 	if err != nil {
@@ -159,7 +159,7 @@ func TestBuildItem(t *testing.T) {
 
 // Setters dispatch by widget kind with node-named errors.
 func TestWindowSetters(t *testing.T) {
-	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1">` +
+	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><label id="g" text="hi"/><entry id="e" text=""/><select id="s" onChange="P">` +
 		`<option value="1" text="One"/><option value="2" text="Two"/></select>` +
 		`<rect id="r" color="#111111"/></vbox></window></goexml>`))
@@ -202,7 +202,7 @@ func TestWindowSetters(t *testing.T) {
 
 // {{placeholder}} templates render from the raw XML text.
 func TestWindowTemplates(t *testing.T) {
-	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1">` +
+	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><label id="g" text="Hello {{name}}, {{n}}"/>` +
 		`<select id="s" onChange="P"><option value="1" text="Item {{i}}"/></select></vbox></window></goexml>`))
 	if err != nil {
@@ -261,7 +261,7 @@ func TestSlotHeightStyle(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	// Lay out once: heights only settle after the parent lays out.
-	w.Content.Resize(w.Size)
+	w.Content.Resize(fyne.NewSize(800, 600))
 	c := w.Find("page").(*Container)
 	// h-2 = 2*4 px, exactly like any other styled leaf.
 	if got := c.slot.Size().Height; got != 8 {
@@ -274,7 +274,7 @@ func TestSlotHeightStyle(t *testing.T) {
 
 // Sibling containers are independent injection units in one window.
 func TestSiblingContainers(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><container id="head"><vbox id="wh"><label id="h" text="H"/><slot/></vbox></container>` +
 		`<container id="body"><vbox id="wb"><label id="f" text="F"/><slot/></vbox></container></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))

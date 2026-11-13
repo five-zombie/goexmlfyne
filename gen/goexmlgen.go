@@ -46,7 +46,7 @@ func Form() *goexml.Node {
 			&goexml.Node{
 				Type:  "window",
 				Line:  2,
-				Attrs: map[string]string{"size": "800x600", "title": "Form"},
+				Attrs: map[string]string{"title": "Form"},
 				Children: []*goexml.Node{
 					&goexml.Node{
 						Type:  "vbox",
@@ -131,7 +131,7 @@ func Page() *goexml.Node {
 			&goexml.Node{
 				Type:  "window",
 				Line:  4,
-				Attrs: map[string]string{"size": "480x360", "title": "Page"},
+				Attrs: map[string]string{"title": "Page"},
 				Children: []*goexml.Node{
 					&goexml.Node{
 						Type:  "container",
@@ -178,7 +178,7 @@ func Showcase() *goexml.Node {
 			&goexml.Node{
 				Type:  "window",
 				Line:  2,
-				Attrs: map[string]string{"size": "800x500", "title": "Showcase"},
+				Attrs: map[string]string{"title": "Showcase"},
 				Children: []*goexml.Node{
 					&goexml.Node{
 						Type:  "vbox",
@@ -389,7 +389,7 @@ func Widgets() *goexml.Node {
 			&goexml.Node{
 				Type:  "window",
 				Line:  2,
-				Attrs: map[string]string{"size": "800x600", "title": "Widgets"},
+				Attrs: map[string]string{"title": "Widgets"},
 				Children: []*goexml.Node{
 					&goexml.Node{
 						Type:  "vbox",

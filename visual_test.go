@@ -27,7 +27,7 @@ func collectRects(o fyne.CanvasObject, out *[]*canvas.Rectangle) {
 // color and border render as canvas rectangles, the box keeps its id,
 // and plain nodes stay untouched.
 func TestStyledBoxVisualLayer(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="300x200">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="root">` +
 		`<vbox id="card" style="bg-[#112233] b-2 b-[#445566] rounded-md p-2">` +
 		`<label id="l" text="hi"/></vbox>` +
@@ -69,7 +69,7 @@ func TestStyledBoxVisualLayer(t *testing.T) {
 
 // visible="false" on a styled box hides the whole visual layer.
 func TestStyledBoxVisibleFalse(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="card" visible="false" style="bg-[#112233]"><label id="l" text="hi"/></vbox>` +
 		`</window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -104,7 +104,7 @@ func TestStyledBoxDecodeErrors(t *testing.T) {
 		{"rounded", "nothing to round"},
 		{"rounded-md b-2 b-[#ff0000] bt-[#00ff00]", "uniform"},
 	} {
-		doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<vbox id="card" style="` + tc.style + `"><label id="l" text="hi"/></vbox>` +
 			`</window></goexml>`
 		_, err := Decode([]byte(doc))

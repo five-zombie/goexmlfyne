@@ -43,9 +43,6 @@ func TestBuildForm(t *testing.T) {
 	if w.Title != "Form" {
 		t.Fatalf("title = %q, want Form", w.Title)
 	}
-	if w.Size != fyne.NewSize(800, 600) {
-		t.Fatalf("size = %v, want 800x600", w.Size)
-	}
 	box, ok := w.Content.(*fyne.Container)
 	if !ok {
 		t.Fatalf("content is %T, want *fyne.Container", w.Content)
@@ -87,7 +84,7 @@ func TestBuildUnknownHandler(t *testing.T) {
 }
 
 func TestBuildState(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><label id="l" text="x" visible="false"/>` +
 		`<entry id="e" disabled="true"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -112,7 +109,7 @@ func TestBuildState(t *testing.T) {
 }
 
 func TestBuildSelectTable(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><select id="s" onChange="OnPick">` +
 		`<option value="a" text="A"/><option value="b" text="B" selected/></select>` +
 		`<table id="t"><row><cell text="Name"/><cell text="Age"/></row>` +
@@ -167,7 +164,7 @@ func TestBuildSelectTable(t *testing.T) {
 }
 
 func TestBuildTableSelect(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<table id="t" onSelect="OnRow"><row><cell text="A"/><cell text="B"/></row>` +
 		`<row><cell text="1"/><cell text="2"/></row></table></window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -239,7 +236,7 @@ func TestBuildTableRaggedCells(t *testing.T) {
 // A child carrying w-full and h-full takes the parent's full content
 // area: the fill dimensions resolve against the parent, not siblings.
 func TestBuildFillTakesParentArea(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><rect id="r" color="#2e2e2e" style="w-full h-full"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -260,7 +257,7 @@ func TestBuildFillTakesParentArea(t *testing.T) {
 // Fill dimensions resolve against the parent's content area: a
 // padded parent keeps its padding, the child never overlaps it.
 func TestBuildFillRespectsParentPadding(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x100">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b" style="p-2"><rect id="r" color="#2e2e2e" style="w-full h-full"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -291,7 +288,7 @@ func TestBuildFixedHeightZeroSpacer(t *testing.T) {
 		{"h-0", 0},      // invisible, no footprint
 		{"h-0 m-2", 16}, // invisible, pushes neighbours apart via margin
 	} {
-		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<vbox id="b"><rect id="r" color="#2e2e2e" style="` + tc.style + `"/></vbox></window></goexml>`
 		root, err := Decode([]byte(doc))
 		if err != nil {
@@ -319,7 +316,7 @@ func TestBuildFixedHeightWrappers(t *testing.T) {
 		{"h-2 m-2", 24},     // 8 content + 8+8 margin
 		{"h-2 p-2 m-2", 40}, // 8 content + 16 padding + 16 margin
 	} {
-		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<vbox id="b"><rect id="r" color="#2e2e2e" style="` + tc.style + `"/></vbox></window></goexml>`
 		root, err := Decode([]byte(doc))
 		if err != nil {
@@ -369,23 +366,26 @@ func TestScrollWrapsTallContent(t *testing.T) {
 	}
 	// Lay out once first: wrapped rows only reach their true height
 	// after layout, so the fresh minimum understates tall content.
-	w.Content.Resize(w.Size)
+	// The window size is set from Go now; a fixed test size stands in
+	// for the caller's Resize call.
+	const winW, winH = float32(800), float32(600)
+	w.Content.Resize(fyne.NewSize(winW, winH))
 	full := w.Content.MinSize()
-	if full.Height <= w.Size.Height {
-		t.Fatalf("content height %v fits window %v, test proves nothing", full.Height, w.Size.Height)
+	if full.Height <= winH {
+		t.Fatalf("content height %v fits window %v, test proves nothing", full.Height, winH)
 	}
 	// The demo shows content through a scroll container; the scroll
 	// must report a small size even for huge content, otherwise Fyne
 	// clamps the window content. The driver-level clamp itself needs
 	// a display and is not reproducible here.
 	view := container.NewScroll(w.Content)
-	if got := view.MinSize(); got.Height >= full.Height || got.Height > w.Size.Height {
-		t.Fatalf("scroll size %v does not fit tall content %v in window %v", got, full, w.Size)
+	if got := view.MinSize(); got.Height >= full.Height || got.Height > winH {
+		t.Fatalf("scroll size %v does not fit tall content %v in window %v", got, full, winH)
 	}
 }
 
 func TestWindowFindSelectValue(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><select id="city" onChange="OnPick">` +
 		`<option value="jkt" text="Jakarta"/><option value="bdg" text="Bandung"/></select>` +
 		`<entry id="nama"/></vbox></window></goexml>`
@@ -419,7 +419,7 @@ func TestWindowFindSelectValue(t *testing.T) {
 }
 
 func TestBuildStyle(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><label id="lbl" text="Hi" style="w-full p-2 pt-4"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -454,7 +454,7 @@ func TestBuildStyle(t *testing.T) {
 }
 
 func TestBuildMargin(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><label id="a" text="A" style="m-2"/><label id="c" text="C" style="p-1 m-1"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -494,7 +494,7 @@ func TestBuildMargin(t *testing.T) {
 }
 
 func TestBuildHBoxFullWidth(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<hbox id="b"><label id="a" text="A"/><label id="c" text="C" style="w-full"/></hbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -516,7 +516,7 @@ func TestBuildHBoxFullWidth(t *testing.T) {
 // In a grid the final cell height is the row height: h-N only raises
 // the row minimum, it never disables the stretch.
 func TestBuildGridStretchWins(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="g" column="grid" min="1" max="1">` +
 		`<rect id="r" color="#2e2e2e" style="h-2"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -536,7 +536,7 @@ func TestBuildGridStretchWins(t *testing.T) {
 }
 
 func TestBuildGrid(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="g" column="grid" min="1" max="5">` +
 		`<label id="a" text="A"/><label id="b" text="B"/><label id="c" text="C"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
@@ -573,7 +573,7 @@ func closeEnough(a, b float32) bool {
 
 func TestBuildAlignVariants(t *testing.T) {
 	for _, align := range []string{"start", "center", "end"} {
-		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<vbox id="b" align="` + align + `" style="w-full">` +
 			`<label id="wide" text="A much longer label text"/>` +
 			`<label id="narrow" text="A"/></vbox></window></goexml>`
@@ -605,7 +605,7 @@ func TestBuildAlignVariants(t *testing.T) {
 		}
 	}
 	for _, align := range []string{"start", "center", "end"} {
-		doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+		doc := `<goexml version="0.1.0"><window title="x">` +
 			`<hbox id="b" align="` + align + `" style="w-full">` +
 			`<entry id="tall" text="x" style="h-full"/><label id="short" text="Hi"/></hbox></window></goexml>`
 		root, err := Decode([]byte(doc))
@@ -641,7 +641,7 @@ func TestBuildAlignVariants(t *testing.T) {
 }
 
 func TestBuildJustify(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<hbox id="b" justify="space-between"><label id="a" text="A"/><label id="c" text="C"/></hbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -663,7 +663,7 @@ func TestBuildJustify(t *testing.T) {
 }
 
 func TestBuildRect(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b"><rect id="band" color="#2e2e2e" style="w-full h-2"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -690,16 +690,16 @@ func TestBuildTextElement(t *testing.T) {
 		wrap fyne.TextWrap
 	}{
 		{"body defaults to wrap",
-			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t">Hello world</text></vbox></window></goexml>`,
+			`<goexml version="0.1.0"><window title="x"><vbox id="b"><text id="t">Hello world</text></vbox></window></goexml>`,
 			"Hello world", fyne.TextWrapWord},
 		{"v attr",
-			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t" v="Hello attr" /></vbox></window></goexml>`,
+			`<goexml version="0.1.0"><window title="x"><vbox id="b"><text id="t" v="Hello attr" /></vbox></window></goexml>`,
 			"Hello attr", fyne.TextWrapWord},
 		{"break",
-			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t" wrap="break">Hi</text></vbox></window></goexml>`,
+			`<goexml version="0.1.0"><window title="x"><vbox id="b"><text id="t" wrap="break">Hi</text></vbox></window></goexml>`,
 			"Hi", fyne.TextWrapBreak},
 		{"off",
-			`<goexml version="0.1.0"><window title="x" size="10x10"><vbox id="b"><text id="t" wrap="off">Hi</text></vbox></window></goexml>`,
+			`<goexml version="0.1.0"><window title="x"><vbox id="b"><text id="t" wrap="off">Hi</text></vbox></window></goexml>`,
 			"Hi", fyne.TextWrapOff},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -727,7 +727,7 @@ func TestBuildTextElement(t *testing.T) {
 
 func TestBuildWrapGrows(t *testing.T) {
 	words := strings.Repeat("lorem ipsum dolor sit amet consectetur adipiscing elit ", 60)
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b" style="w-full"><text id="p">` + words + `</text></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -751,7 +751,7 @@ func TestBuildTenThousandWords(t *testing.T) {
 	if got := len(strings.Fields(words)); got != 10000 {
 		t.Fatalf("fixture has %d words, want 10000", got)
 	}
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
+	doc := `<goexml version="0.1.0"><window title="x">` +
 		`<vbox id="b" style="w-full"><text id="big">` + words + `</text></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
@@ -844,7 +844,7 @@ func TestBuildExampleFiles(t *testing.T) {
 			t.Fatalf("Decode %s returned error: %v", f, docErr)
 		}
 		// A fragment needs a host window to build into.
-		host, err := Decode([]byte(`<goexml version="0.1.0"><window title="host" size="1x1">` +
+		host, err := Decode([]byte(`<goexml version="0.1.0"><window title="host">` +
 			`<label id="hostlbl" text="x"/></window></goexml>`))
 		if err != nil {
 			t.Fatalf("host decode: %v", err)
