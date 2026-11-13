@@ -165,6 +165,8 @@ func TestDecodeRejects(t *testing.T) {
 		{"image src template", `<goexml version="0.1.0"><window title="x" size="1x1"><image id="i" src="{{name}}"/></window></goexml>`, "bad src"},
 		{"image empty src", `<goexml version="0.1.0"><window title="x" size="1x1"><image id="i" src=""/></window></goexml>`, "bad src"},
 		{"image bad fit", `<goexml version="0.1.0"><window title="x" size="1x1"><image id="i" src="a/b.png" fit="zoom"/></window></goexml>`, "fit must be"},
+		{"vbox-expand children", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f"><label id="l" text="x"/></vbox-expand></window></goexml>`, "takes no children"},
+		{"vbox-expand scrollable value", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable="true"/></window></goexml>`, "scrollable takes no value"},
 		{"style unknown", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="wide"/></window></goexml>`, "unknown style"},
 		{"style bad pad", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="p-9"/></window></goexml>`, "bad padding"},
 		{"style bad margin", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="m-9"/></window></goexml>`, "bad margin"},

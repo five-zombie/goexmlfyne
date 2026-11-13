@@ -327,6 +327,15 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if st, err := styles.ParseStyle(n.Attr("style")); err == nil && st.Vis.Active() {
 			return nodeErr(n, "renders no visual layer: drop bg-*, b-* and rounded from its style")
 		}
+	case "vbox-expand":
+		// Items come from the runtime only: a child here would never
+		// reach the screen and would silently rot.
+		if len(n.Children) != 0 {
+			return nodeErr(n, "takes no children: fill it at runtime with Append")
+		}
+		if s, ok := n.Attrs["scrollable"]; ok && s != "" {
+			return nodeErr(n, "scrollable takes no value, got %q", s)
+		}
 	case "vbox", "hbox":
 		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {
 			return nodeErr(n, "unknown column mode %q, want grid on vbox", mode)
