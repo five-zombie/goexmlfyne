@@ -447,6 +447,27 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if _, _, _, err := parseHexColor(n, n.Attr("color")); err != nil {
 			return err
 		}
+	case "image":
+		if len(n.Children) != 0 {
+			return nodeErr(n, "cannot have children")
+		}
+		src := n.Attr("src")
+		if src == "" {
+			return nodeErr(n, "needs a src attribute")
+		}
+		// src names a resource the runtime registers, never a file or
+		// URL: a fixed key alphabet keeps a stray path or template out.
+		for _, r := range src {
+			if !('A' <= r && r <= 'Z' || 'a' <= r && r <= 'z' || '0' <= r && r <= '9' ||
+				r == '.' || r == '-' || r == '/' || r == '_') {
+				return nodeErr(n, "bad src %q, want a resource key of letters, digits, dot, dash, slash or underscore", src)
+			}
+		}
+		switch n.Attr("fit") {
+		case "", "contain", "cover", "fill":
+		default:
+			return nodeErr(n, "fit must be contain, cover or fill, got %q", n.Attr("fit"))
+		}
 	case "select":
 		if _, ok := n.Attrs["onChange"]; !ok {
 			return nodeErr(n, "needs an onChange attribute")
