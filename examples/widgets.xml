@@ -1,6 +1,6 @@
 <goexml version="0.1.0">
   <window title="Widgets" size="800x600">
-    <vbox id="wrap" padding="8" spacing="4" align="start">
+    <vbox id="wrap" style="p-2" spacing="4" align="start">
       <label id="lblPick" text="Pick a city" />
       <select id="city" onChange="OnPick">
         <option value="jkt" text="Jakarta" />

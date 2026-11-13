@@ -635,6 +635,12 @@ func checkAttrs(n *Node, ids map[string]int) error {
 	var unknown []string
 	for name := range n.Attrs {
 		if !allowed[name] {
+			// The padding attribute is gone from vbox/hbox: point old
+			// documents at the style utilities instead of a generic
+			// unknown-attribute error.
+			if name == "padding" && (n.Type == "vbox" || n.Type == "hbox") {
+				return nodeErr(n, "padding moved to style: use the p-N utilities, e.g. p-2 for 8px")
+			}
 			unknown = append(unknown, name)
 		}
 	}
@@ -689,7 +695,7 @@ func checkValues(n *Node) error {
 			return nodeErr(n, "%s must be true or false, got %q", key, v)
 		}
 	}
-	for _, key := range []string{"padding", "spacing"} {
+	for _, key := range []string{"spacing"} {
 		if v := n.Attr(key); v != "" {
 			if i, err := strconv.Atoi(v); err != nil || i < 0 {
 				return nodeErr(n, "%s must be a non-negative integer, got %q", key, v)

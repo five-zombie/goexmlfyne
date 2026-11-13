@@ -7,7 +7,7 @@ import (
 
 const validDoc = `<goexml version="0.1.0">
   <window title="Form" size="800x600">
-    <vbox id="main" padding="8" spacing="4" align="start">
+    <vbox id="main" style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Enter name" />
       <entry id="inpName" text="" placeholder="Name" style="w-full" />
       <hbox id="actions" spacing="4" align="end">
@@ -153,6 +153,7 @@ func TestDecodeRejects(t *testing.T) {
 		{"text bad wrap", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><text id="t" wrap="wide">x</text></vbox></window></goexml>`, "wrap must be"},
 		{"label rejects wrap", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" wrap="word"/></window></goexml>`, "has no attribute"},
 		{"expand removed", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" expand="true"/></window></goexml>`, "has no attribute"},
+		{"padding moved to style", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="v" padding="8"/></window></goexml>`, "padding moved to style: use the p-N utilities, e.g. p-2 for 8px"},
 		{"style two widths", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="w-full w-full"/></window></goexml>`, "more than one w-*"},
 		{"style two heights", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="h-2 h-full"/></window></goexml>`, "more than one h-*"},
 		{"table empty row", `<goexml version="0.1.0"><window title="x" size="1x1"><table id="t"><row/></table></window></goexml>`, "at least one <cell>"},

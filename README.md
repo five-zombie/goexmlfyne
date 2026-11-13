@@ -8,7 +8,7 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
 ```xml
 <goexml version="0.1.0">
   <window title="Form" size="800x600">
-    <vbox id="main" padding="8" spacing="4" align="start">
+    <vbox id="main" style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Enter name" />
       <entry id="inpName" text="" placeholder="Name" style="w-full" />
       <hbox id="actions" spacing="4" align="end">

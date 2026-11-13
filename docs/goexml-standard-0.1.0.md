@@ -29,6 +29,12 @@ this format into Fyne widgets.
 > `{{placeholder}}` template. Uniqueness and the `[A-Za-z0-9_]+`
 > shape still apply whenever an id is present. See the common
 > attributes block.
+>
+> **Fifth amendment, 13 November 2026 (still version 0.1.0):** the
+> `padding` attribute is removed from `vbox` and `hbox` — the style
+> utilities (`p-2` = 8 px) superseded it; documents using the
+> attribute are rejected with a migration hint. See Layout
+> attributes.
 
 ## Minimal example
 
@@ -121,9 +127,10 @@ this format into Fyne widgets.
 
 ## Layout attributes
 
-- `padding`: e.g. `padding="8"`.
-- `spacing`: the gap between children in `vbox` and `hbox`, e.g.
-  `spacing="4"`.
+- `spacing`: the gap between children in `vbox`, `hbox`, and
+  `vbox-expand`, e.g. `spacing="4"`. Inner padding is a style concern:
+  use the `p-N` utilities (the old `padding` attribute moved there —
+  fourth/see the amendment block).
 - `align`: `start`, `center`, or `end`.
 - Space filling goes through `style` only — `w-full`, `h-full`, `h-N`.
 
@@ -132,7 +139,7 @@ this format into Fyne widgets.
 ```xml
 <goexml version="0.1.0">
   <window title="Hello" size="800x600">
-    <vbox padding="8" spacing="4" align="start">
+    <vbox style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Hello" visible="true" />
       <button id="btnClick" text="Click" onClick="OnClick" />
     </vbox>
@@ -145,7 +152,7 @@ this format into Fyne widgets.
 ```xml
 <goexml version="0.1.0">
   <window title="Form" size="800x600">
-    <vbox padding="8" spacing="4" align="start">
+    <vbox style="p-2" spacing="4" align="start">
       <label id="lblTitle" text="Enter name" />
       <entry id="inpName" text="" placeholder="Name" style="w-full" />
       <hbox spacing="4" align="end">

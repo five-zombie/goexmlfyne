@@ -50,6 +50,13 @@ func TestBuildForm(t *testing.T) {
 	if !ok {
 		t.Fatalf("content is %T, want *fyne.Container", w.Content)
 	}
+	// The style-era padding wraps the vbox; unwrap one layer to reach
+	// the box itself.
+	if len(box.Objects) == 1 {
+		if inner, ok := box.Objects[0].(*fyne.Container); ok {
+			box = inner
+		}
+	}
 	if len(box.Objects) != 3 {
 		t.Fatalf("content children = %d, want 3", len(box.Objects))
 	}
@@ -271,7 +278,7 @@ func TestBuildFillTakesParentArea(t *testing.T) {
 // padded parent keeps its padding, the child never overlaps it.
 func TestBuildFillRespectsParentPadding(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="200x100">` +
-		`<vbox id="b" padding="8"><rect id="r" color="#2e2e2e" style="w-full h-full"/></vbox></window></goexml>`
+		`<vbox id="b" style="p-2"><rect id="r" color="#2e2e2e" style="w-full h-full"/></vbox></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
 		t.Fatalf("Decode returned error: %v", err)

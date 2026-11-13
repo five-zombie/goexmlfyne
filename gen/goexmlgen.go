@@ -51,7 +51,7 @@ func Form() *goexml.Node {
 					&goexml.Node{
 						Type:  "vbox",
 						Line:  3,
-						Attrs: map[string]string{"align": "start", "id": "main", "padding": "8", "spacing": "4"},
+						Attrs: map[string]string{"align": "start", "id": "main", "spacing": "4", "style": "p-2"},
 						Children: []*goexml.Node{
 							&goexml.Node{
 								Type:  "label",
@@ -98,7 +98,7 @@ func PageBody() *goexml.Node {
 			&goexml.Node{
 				Type:  "vbox",
 				Line:  4,
-				Attrs: map[string]string{"id": "body", "padding": "4", "spacing": "4"},
+				Attrs: map[string]string{"id": "body", "spacing": "4", "style": "p-1"},
 				Children: []*goexml.Node{
 					&goexml.Node{
 						Type:  "label",
@@ -141,7 +141,7 @@ func Page() *goexml.Node {
 							&goexml.Node{
 								Type:  "vbox",
 								Line:  6,
-								Attrs: map[string]string{"id": "shell", "padding": "8", "spacing": "8"},
+								Attrs: map[string]string{"id": "shell", "spacing": "8", "style": "p-2"},
 								Children: []*goexml.Node{
 									&goexml.Node{
 										Type:  "label",
@@ -183,7 +183,7 @@ func Showcase() *goexml.Node {
 					&goexml.Node{
 						Type:  "vbox",
 						Line:  3,
-						Attrs: map[string]string{"align": "start", "padding": "8", "spacing": "4"},
+						Attrs: map[string]string{"align": "start", "spacing": "4", "style": "p-2"},
 						Children: []*goexml.Node{
 							&goexml.Node{
 								Type:  "text",
@@ -394,7 +394,7 @@ func Widgets() *goexml.Node {
 					&goexml.Node{
 						Type:  "vbox",
 						Line:  3,
-						Attrs: map[string]string{"align": "start", "id": "wrap", "padding": "8", "spacing": "4"},
+						Attrs: map[string]string{"align": "start", "id": "wrap", "spacing": "4", "style": "p-2"},
 						Children: []*goexml.Node{
 							&goexml.Node{
 								Type:  "label",
