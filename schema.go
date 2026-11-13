@@ -10,8 +10,7 @@ var commonAttrs = []string{"id", "visible", "style"}
 
 // tagAttrs maps each 0.1.0 element to its own allowed attributes.
 // Common attributes are merged in by allowedAttrs, except for the
-// root, the window, and border region wrappers which take no
-// common attributes.
+// root and the window, which take no common attributes.
 var tagAttrs = map[string][]string{
 	"goexml":      {},
 	"goexml-item": {},
@@ -20,12 +19,6 @@ var tagAttrs = map[string][]string{
 	"slot":        {"style"},
 	"vbox":        {"spacing", "align", "justify", "column", "min", "max"},
 	"hbox":        {"spacing", "align", "justify"},
-	"border":      {},
-	"top":         {},
-	"bottom":      {},
-	"left":        {},
-	"right":       {},
-	"center":      {},
 	"label":       {"text"},
 	"text":        {"v", "wrap"},
 	"button":      {"text", "onClick", "disabled"},
@@ -43,7 +36,7 @@ var tagAttrs = map[string][]string{
 // withCommon lists the elements that accept common attributes.
 var withCommon = map[string]bool{
 	"container": true,
-	"vbox":      true, "hbox": true, "border": true,
+	"vbox":      true, "hbox": true,
 	"label": true, "button": true, "entry": true,
 	"select": true, "table": true, "rect": true,
 	"text": true, "image": true, "vbox-expand": true,
@@ -61,15 +54,10 @@ var idRequired = map[string]bool{
 	"vbox-expand": true,
 }
 
-// regions are the only valid children of a border element.
-var regions = map[string]bool{
-	"top": true, "bottom": true, "left": true, "right": true, "center": true,
-}
-
 // widgets are elements that render into Fyne objects.
 var widgets = map[string]bool{
 	"container": true, "slot": true,
-	"vbox": true, "hbox": true, "border": true,
+	"vbox": true, "hbox": true,
 	"label": true, "button": true, "entry": true,
 	"select": true, "table": true, "rect": true,
 	"text": true, "image": true, "vbox-expand": true,
@@ -88,7 +76,7 @@ func allowedAttrs(tag string) map[string]bool {
 	}
 	// Both envelopes are roots: goexml is the document root, goexml-item
 	// the fragment root. They are never legal as children, so they stay
-	// out of widgets, regions, and every child list.
+	// out of widgets and every child list.
 	if tag == "goexml" || tag == "goexml-item" {
 		set["version"] = true
 	}

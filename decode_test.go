@@ -129,7 +129,7 @@ func TestDecodeRejects(t *testing.T) {
 		{"bad align", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="a" align="middle"><label id="b" text="x"/></vbox></window></goexml>`, "align must be"},
 		{"text content", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="a" text="x">hi</label></window></goexml>`, "text is not allowed"},
 		{"button no handler attr", `<goexml version="0.1.0"><window title="x" size="1x1"><button id="a" text="x"/></window></goexml>`, "needs an onClick"},
-		{"dup region", `<goexml version="0.1.0"><window title="x" size="1x1"><border id="b"><top><label id="a" text="x"/></top><top/></border></window></goexml>`, "duplicate <top>"},
+		{"border removed", `<goexml version="0.1.0"><window title="x" size="1x1"><border id="b"><top><label id="a" text="x"/></top></border></window></goexml>`, "is not allowed inside"},
 		{"select no options", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"/></window></goexml>`, "at least one <option>"},
 		{"select two selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected/><option value="b" text="B" selected/></select></window></goexml>`, "only one selected"},
 		{"select valued selected", `<goexml version="0.1.0"><window title="x" size="1x1"><select id="s" onChange="OnPick"><option value="a" text="A" selected="maybe"/></select></window></goexml>`, "selected must be the bare attribute or selected=\"true\""},
@@ -195,7 +195,6 @@ func TestDecodeRejects(t *testing.T) {
 		{"table fixed height", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><table id="t" style="h-2"><row><cell text="A"/></row></table></vbox></window></goexml>`, "not supported on a table"},
 		{"table full height", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox id="b"><table id="t" style="h-full"><row><cell text="A"/></row></table></vbox></window></goexml>`, "not supported on a table"},
 		{"window two children", `<goexml version="0.1.0"><window title="x" size="1x1"><rect id="a" color="#111111"/><rect id="b" color="#222222"/></window></goexml>`, "exactly one child"},
-		{"border region two children", `<goexml version="0.1.0"><window title="x" size="1x1"><border id="bd"><top><label id="a" text="a"/><label id="b" text="b"/></top><center><label id="c" text="c"/></center></border></window></goexml>`, "at most one child"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

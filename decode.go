@@ -403,35 +403,10 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 			}
 		}
 	case "border":
-		if len(n.Children) == 0 {
-			return nodeErr(n, "needs at least one region")
-		}
-		seen := map[string]bool{}
-		for _, c := range n.Children {
-			if !regions[c.Type] {
-				return nodeErr(c, "is not a border region")
-			}
-			if seen[c.Type] {
-				return nodeErr(c, "duplicate <%s> region", c.Type)
-			}
-			seen[c.Type] = true
-			if err := checkAttrs(c, ids); err != nil {
-				return err
-			}
-			if len(c.Children) > 1 {
-				// Multiple region children would stack in an implicit,
-				// unconfigured box (see checkWindow).
-				return nodeErr(c, "needs at most one child; wrap multiple children in a <vbox>")
-			}
-			for _, g := range c.Children {
-				if !widgets[g.Type] {
-					return nodeErr(g, "is not allowed inside <%s>", c.Type)
-				}
-				if err := checkWidget(g, c.Type, ids, inContainer); err != nil {
-					return err
-				}
-			}
-		}
+		// The five-region border element was an invented design and is
+		// removed from the schema; it reaches here only from hand-built
+		// trees, since decode no longer knows the tag.
+		return nodeErr(n, "was removed from the schema; use vbox/hbox")
 	case "label":
 		if _, ok := n.Attrs["text"]; !ok {
 			return nodeErr(n, "needs a text attribute")

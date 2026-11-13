@@ -111,23 +111,6 @@ func TestBuildState(t *testing.T) {
 	}
 }
 
-func TestBuildBorder(t *testing.T) {
-	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
-		`<border id="b"><top><label id="t" text="top"/></top>` +
-		`<center><label id="c" text="mid"/></center></border></window></goexml>`
-	root, err := Decode([]byte(doc))
-	if err != nil {
-		t.Fatalf("Decode returned error: %v", err)
-	}
-	w, err := Build(root, map[string]func(){}, nil, nil)
-	if err != nil {
-		t.Fatalf("Build returned error: %v", err)
-	}
-	if _, ok := w.Content.(*fyne.Container); !ok {
-		t.Fatalf("content is %T, want *fyne.Container", w.Content)
-	}
-}
-
 func TestBuildSelectTable(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="10x10">` +
 		`<vbox id="b"><select id="s" onChange="OnPick">` +

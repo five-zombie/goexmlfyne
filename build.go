@@ -484,48 +484,6 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 			)
 		}
 		return applyState(box, n), nil
-	case "border":
-		var top, bottom, left, right, center fyne.CanvasObject
-		for _, r := range n.Children {
-			var objs []fyne.CanvasObject
-			for _, g := range r.Children {
-				o, err := buildObject(g, ctx)
-				if err != nil {
-					return nil, err
-				}
-				objs = append(objs, o)
-			}
-			var o fyne.CanvasObject
-			switch len(objs) {
-			case 0:
-				o = nil
-			case 1:
-				o = objs[0]
-			default:
-				var hints []childHint
-				for _, g := range r.Children {
-					hints = append(hints, hintOf(g))
-				}
-				o = container.New(newBoxLayout(true, 4, "start", "start", hints), objs...)
-			}
-			switch r.Type {
-			case "top":
-				top = o
-			case "bottom":
-				bottom = o
-			case "left":
-				left = o
-			case "right":
-				right = o
-			case "center":
-				center = o
-			}
-		}
-		var centers []fyne.CanvasObject
-		if center != nil {
-			centers = append(centers, center)
-		}
-		return applyState(container.NewBorder(top, bottom, left, right, centers...), n), nil
 	case "label":
 		return applyState(widget.NewLabel(n.Attr("text")), n), nil
 	case "text":
