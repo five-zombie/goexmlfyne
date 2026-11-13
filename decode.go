@@ -321,6 +321,12 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
 		}
+		// A slot is a hole: the visual layer has nothing to paint on.
+		// The style parser accepts the tokens generically, so reject
+		// them here instead of letting them decode and render nothing.
+		if st, err := styles.ParseStyle(n.Attr("style")); err == nil && st.Vis.Active() {
+			return nodeErr(n, "renders no visual layer: drop bg-*, b-* and rounded from its style")
+		}
 	case "vbox", "hbox":
 		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {
 			return nodeErr(n, "unknown column mode %q, want grid on vbox", mode)

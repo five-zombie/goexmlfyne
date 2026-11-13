@@ -32,13 +32,13 @@ this format into Fyne widgets.
   (any widget) and **exactly one** `<slot>` somewhere in its subtree.
   Containers never nest: a container must not be a descendant of a
   container within one file. Multiple sibling containers are fine.
-- `slot`: the hole filled from Go. A leaf whose `style` takes the same
-  utilities as any widget: `w-*`, `h-N`, padding and margin decide the
-  area it claims. The visual utilities (`bg-`, `b-`, `rounded`) parse
-  but paint nothing on a slot — a slot is a hole, only its filled
-  content shows. `Build` requires content for every container id, and
-  `SetContent` on the built `*Container` replaces the slot's content. A
-  slot outside any `<container>` is rejected.
+- `slot`: the hole filled from Go. A leaf whose `style` takes only
+  the dimension utilities — `w-*`, `h-N`, padding and margin — that
+  decide the area it claims; the visual utilities (`bg-`, `b-`,
+  `rounded`) are rejected on a slot, because a slot is a hole with
+  nothing to paint on. `Build` requires content for every container
+  id, and `SetContent` on the built `*Container` replaces the slot's
+  content. A slot outside any `<container>` is rejected.
 - `goexml-item`: the root of an injectable fragment, requires
   `version="0.1.0"` — the fragment envelope. It holds **exactly one**
   child widget (a window is not allowed inside); the same schema rules

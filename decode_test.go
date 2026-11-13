@@ -351,11 +351,24 @@ func TestDecodeContainerSlot(t *testing.T) {
 		{"container without id", `<goexml version="0.1.0"><window title="x" size="1x1">` +
 			`<container><slot/></container></window></goexml>`,
 			"needs an id"},
+		{"slot with background", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="p"><slot style="bg-[#112233]"/></container></window></goexml>`,
+			"renders no visual layer"},
+		{"slot with border and rounding", `<goexml version="0.1.0"><window title="x" size="1x1">` +
+			`<container id="p"><slot style="w-full h-2 b-2 b-[#445566] rounded-md"/></container></window></goexml>`,
+			"renders no visual layer"},
 	} {
 		_, err := Decode([]byte(tc.doc))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Fatalf("%s: error %q does not contain %q", tc.name, err, tc.want)
 		}
+	}
+
+	// Dimension-only styles on a slot stay valid.
+	doc = `<goexml version="0.1.0"><window title="x" size="1x1">` +
+		`<container id="p"><slot style="w-full h-2 m-1 p-2"/></container></window></goexml>`
+	if _, err := Decode([]byte(doc)); err != nil {
+		t.Fatalf("dimension-only slot style rejected: %v", err)
 	}
 }
 
