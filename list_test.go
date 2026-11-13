@@ -337,6 +337,107 @@ func TestListSlotNil(t *testing.T) {
 	}
 }
 
+// TestListDiscardAndSetContent covers the error-returning slot fill
+// and the single-draft escape hatch, plus the cheap guards the audit
+// flagged untested: Commit(nil) and Draft's structural errors.
+func TestListDiscardAndSetContent(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox-expand id="feed"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, map[string]func(){"OnRow": func() {}}, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	feed := w.Find("feed").(*List)
+	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox>` +
+		`<button id="open" text="go" onClick="OnRow"/>` +
+		`<container id="slot"><slot/></container>` +
+		`</vbox></goexml-item>`))
+
+	// Draft's structural errors: wrong child count (a hand-built tree,
+	// since decode rejects that shape first), unknown handler.
+	two := &Node{Type: "goexml-item", Line: 1, Children: []*Node{
+		{Type: "label", Line: 1, Attrs: map[string]string{"id": "a", "text": "x"}},
+		{Type: "label", Line: 1, Attrs: map[string]string{"id": "b", "text": "y"}},
+	}}
+	if _, err := feed.Draft(two); err == nil || !strings.Contains(err.Error(), "must hold exactly one child") {
+		t.Fatalf("error %q does not reject two children", err)
+	}
+	badHandler, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><button id="b" text="x" onClick="Nope"/></goexml-item>`))
+	if _, err := feed.Draft(badHandler); err == nil || !strings.Contains(err.Error(), "no handler") {
+		t.Fatalf("error %q does not reject the unknown handler", err)
+	}
+	if feed.Count() != 0 || len(feed.drafts) != 0 {
+		t.Fatal("failed drafts changed the list")
+	}
+
+	// Item.SetContent is the error-returning fill: a typo is a library
+	// error, not a panic at the call site's assertion.
+	it, err := feed.Draft(frag)
+	if err != nil {
+		t.Fatalf("Draft: %v", err)
+	}
+	if err := it.SetContent("slotTypo", widget.NewLabel("x")); err == nil ||
+		!strings.Contains(err.Error(), `no container with id "slotTypo"`) {
+		t.Fatalf("error %q does not name the missing slot", err)
+	}
+	if err := it.SetContent("slot", widget.NewLabel("body")); err != nil {
+		t.Fatalf("SetContent: %v", err)
+	}
+	if err := feed.Commit(it); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	// Commit(nil) is refused like any other broken input.
+	if err := feed.Commit(nil); err == nil || !strings.Contains(err.Error(), "nothing to commit") {
+		t.Fatalf("error %q does not refuse a nil commit", err)
+	}
+
+	// Discard drops one pending draft and retires only its handle.
+	stray, _ := feed.Draft(frag)
+	if err := feed.Discard(stray); err != nil {
+		t.Fatalf("Discard: %v", err)
+	}
+	if len(feed.drafts) != 0 || feed.Count() != 1 {
+		t.Fatalf("Discard left drafts=%d items=%d, want 0 and 1", len(feed.drafts), feed.Count())
+	}
+	err = stray.SetText("open", "zombie")
+	if err == nil || !strings.Contains(err.Error(), "cleared") {
+		t.Fatalf("error %q does not retire the discarded draft", err)
+	}
+	if stray.Find("open") != nil {
+		t.Fatal("Find on a discarded draft returned widgets")
+	}
+	if err := feed.Commit(stray); err == nil || !strings.Contains(err.Error(), "cleared") {
+		t.Fatalf("error %q does not refuse the discarded draft", err)
+	}
+	if err := feed.Discard(stray); err == nil || !strings.Contains(err.Error(), "cleared") {
+		t.Fatalf("error %q does not refuse re-discard", err)
+	}
+	// The other guards: nil, committed, foreign.
+	if err := feed.Discard(nil); err == nil || !strings.Contains(err.Error(), "nothing to discard") {
+		t.Fatalf("error %q does not refuse nil", err)
+	}
+	if err := feed.Discard(it); err == nil || !strings.Contains(err.Error(), "already committed") {
+		t.Fatalf("error %q does not refuse a committed item", err)
+	}
+	otherRoot, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="100x100"><vbox-expand id="o"/></window></goexml>`))
+	otherWin, _ := Build(otherRoot, map[string]func(){"OnRow": func() {}}, nil, nil)
+	foreign := otherWin.Find("o").(*List)
+	theirs, _ := foreign.Draft(frag)
+	if err := feed.Discard(theirs); err == nil || !strings.Contains(err.Error(), "another list") {
+		t.Fatalf("error %q does not refuse a foreign draft", err)
+	}
+	// A discarded slot image handle is retired like any other.
+	pic, _ := feed.Draft(frag)
+	if err := feed.Discard(pic); err != nil {
+		t.Fatalf("Discard 2: %v", err)
+	}
+	if pic.UnfilledImages() != nil {
+		t.Fatalf("UnfilledImages on a discarded draft = %v, want nil", pic.UnfilledImages())
+	}
+}
+
 // TestCommitNamesDeterministicSlot locks the error's determinism:
 // with several unfilled slots the message always names the same one,
 // the way decode names unknown attributes.

@@ -50,7 +50,7 @@ func (l *listLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 }
 
 // sync re-points the inner layout's hints. Slice assignment keeps the
-// adapter allocation-free: Append grows the List's slice once.
+// adapter allocation-free: Commit grows the List's slice once.
 func (l *listLayout) sync() {
 	switch inner := l.inner.(type) {
 	case *boxLayout:
@@ -64,7 +64,7 @@ func (l *listLayout) sync() {
 // private id space. Draft returns it before it is on the screen;
 // every setter the Window has works here too, scoped to this item;
 // handlers resolve against the window's handler map at draft time.
-// Commit stacks it; Clear retires it.
+// Commit stacks it; Discard drops a draft; Clear retires it.
 type Item struct {
 	*widgetScope
 	list      *List
@@ -185,6 +185,32 @@ func (l *List) Clear() {
 	l.box.Refresh()
 }
 
+// Discard drops one pending draft: it never joins the stack, its
+// handle is retired like a cleared one, and the committed rows stay
+// untouched — the escape hatch for a draft whose data never arrived
+// or failed validation. Discarding nil, an already committed item, a
+// retired draft, or a draft of another list is an error.
+func (l *List) Discard(it *Item) error {
+	switch {
+	case it == nil:
+		return fmt.Errorf("goexml: nothing to discard")
+	case it.retired:
+		return fmt.Errorf("goexml: this item was cleared by Clear")
+	case it.list != l:
+		return fmt.Errorf("goexml: this item was drafted by another list")
+	case it.committed:
+		return fmt.Errorf("goexml: this item is already committed")
+	}
+	for i, d := range l.drafts {
+		if d == it {
+			l.drafts = append(l.drafts[:i], l.drafts[i+1:]...)
+			break
+		}
+	}
+	it.retired = true
+	return nil
+}
+
 // Count returns the number of items currently stacked.
 func (l *List) Count() int {
 	return len(l.items)
@@ -215,6 +241,23 @@ func (i *Item) SetText(id, v string) error {
 		return err
 	}
 	return i.widgetScope.SetText(id, v)
+}
+
+// SetContent fills the container slot named id in this item — the
+// error-returning path for slot fills, so a typo is an error from the
+// library instead of a nil-dereference at the call site's type
+// assertion. The object takes the slot's place; passing nil empties
+// the slot, and Commit refuses an item with an empty slot.
+func (i *Item) SetContent(id string, obj fyne.CanvasObject) error {
+	if err := i.guard(); err != nil {
+		return err
+	}
+	c, ok := i.containers[id]
+	if !ok {
+		return fmt.Errorf("goexml: no container with id %q in the fragment", id)
+	}
+	c.SetContent(obj)
+	return nil
 }
 
 // Text on an item, like Window.Text but scoped to it.
