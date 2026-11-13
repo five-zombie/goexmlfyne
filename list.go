@@ -154,6 +154,12 @@ func (l *List) Commit(it *Item) error {
 		return fmt.Errorf("goexml: slot %q is not filled: set it before Commit", unfilled[0])
 	}
 	it.committed = true
+	for i, d := range l.drafts {
+		if d == it {
+			l.drafts = append(l.drafts[:i], l.drafts[i+1:]...)
+			break
+		}
+	}
 	l.items = append(l.items, it)
 	l.hints = append(l.hints, hintOf(it.node))
 	l.box.Objects = append(l.box.Objects, it.obj)

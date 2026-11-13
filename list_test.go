@@ -330,6 +330,11 @@ func TestListSlotNil(t *testing.T) {
 	if feed.Count() != 1 {
 		t.Fatalf("Count = %d, want 1", feed.Count())
 	}
+	// A committed item leaves the drafts: the slice is exactly the
+	// not-yet-committed set its field comment promises.
+	if len(feed.drafts) != 0 {
+		t.Fatalf("drafts = %d after committing everything, want 0", len(feed.drafts))
+	}
 }
 
 // TestCommitNamesDeterministicSlot locks the error's determinism:
