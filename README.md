@@ -47,12 +47,16 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   returns the `*widget.Table`. Height style utilities (`h-full`,
   `h-N`) are not supported: a table always sizes to its content.
 - `rect color="#rrggbb"`: a color box for lines and divider bands.
-- `vbox-expand scrollable?`: an append-only stack. The XML reserves
-  the place; items are built at runtime from `goexml-item` fragments
-  via `Find(id)` + `List.Append` — per-item slot contents and image
-  resources, the fragment's ids private to each item (the same
-  fragment stacks many times). `Clear` empties the stack and retires
-  the handles. `scrollable` wraps the stack so `h-N`/`h-full` bound
+- `vbox-expand scrollable? spacing? align? justify? column="grid"?`:
+  an append-only stack. The XML reserves the place; items are built at
+  runtime from `goexml-item` fragments via `Find(id)` + `List.Append`
+  — per-item slot contents and image resources, the fragment's ids
+  private to each item (the same fragment stacks many times). `Clear`
+  empties the stack and retires the handles. It lays items out with
+  the same engine as a static `vbox`: `spacing` sets the gap between
+  items, `align`/`justify` position them, and `column="grid"` +
+  `min`/`max` flow them into columns. `scrollable` wraps the stack so
+  `h-N`/`h-full` bound
   its height; without size style the stack sizes to its items. The
   visual layer applies like on every widget.
 - `image src? fit?`: a picture. With `src`, it names a registered

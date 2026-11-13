@@ -420,19 +420,29 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 	case "vbox-expand":
 		// An append-only stack: nothing is built from XML children
 		// (decode rejects them), so the box starts empty and grows
-		// through List.Append. scrollable wraps the box so h-N and
-		// h-full bound the visible height; without them the box
-		// simply sizes to its items.
-		box := container.NewVBox()
-		visible := fyne.CanvasObject(box)
+		// through List.Append. It lays items out with the same engine
+		// as a static vbox — spacing, align, justify, and the grid
+		// column block all apply — through a listLayout adapter that
+		// re-points the inner layout's hints at the List's live slice
+		// on every measure, since hints are only known per appended
+		// item. scrollable wraps the box so h-N and h-full bound the
+		// visible height; without them the box simply sizes to its
+		// items.
+		l := &List{tap: ctx.tap}
+		var inner fyne.Layout
+		if n.Attr("column") == "grid" {
+			inner = newGridLayout(0, num(n.Attr("spacing")), gridMin(n), gridMax(n), nil)
+		} else if n.Attr("column") != "" {
+			return nil, nodeErr(n, "unknown column mode %q, want grid", n.Attr("column"))
+		} else {
+			inner = newBoxLayout(true, 0, num(n.Attr("spacing")), alignOf(n), justifyOf(n), nil)
+		}
+		l.box = container.New(&listLayout{inner: inner, list: l})
+		visible := fyne.CanvasObject(l.box)
 		if _, ok := n.Attrs["scrollable"]; ok {
-			visible = container.NewScroll(box)
+			visible = container.NewScroll(l.box)
 		}
-		l := &List{
-			Container: container.New(&holderLayout{}, visible),
-			box:       box,
-			tap:       ctx.tap,
-		}
+		l.Container = container.New(&holderLayout{}, visible)
 		return applyState(l, n), nil
 	case "vbox", "hbox":
 		vertical := n.Type == "vbox"

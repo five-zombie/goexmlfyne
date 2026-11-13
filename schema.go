@@ -32,7 +32,7 @@ var tagAttrs = map[string][]string{
 	"entry":       {"text", "placeholder", "disabled"},
 	"rect":        {"color"},
 	"image":       {"src", "fit"},
-	"vbox-expand": {"scrollable"},
+	"vbox-expand": {"spacing", "align", "justify", "column", "min", "max", "scrollable"},
 	"select":      {"onChange", "disabled"},
 	"option":      {"value", "text", "selected"},
 	"table":       {"onSelect"},

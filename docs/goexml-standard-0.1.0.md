@@ -33,8 +33,11 @@ this format into Fyne widgets.
 > **Fifth amendment, 13 November 2026 (still version 0.1.0):** the
 > `padding` attribute is removed from `vbox` and `hbox` — the style
 > utilities (`p-2` = 8 px) superseded it; documents using the
-> attribute are rejected with a migration hint. See Layout
-> attributes.
+> attribute are rejected with a migration hint. In the same
+> amendment, `vbox-expand` gains every static box layout feature:
+> `spacing`, `align`, `justify`, and `column="grid"` with `min`/`max`
+> now lay out its appended items exactly as they lay out a `vbox`'s
+> children. See Layout attributes and the Tags list.
 
 ## Minimal example
 
@@ -74,9 +77,11 @@ this format into Fyne widgets.
 - `vbox`, `hbox`: vertical and horizontal containers.
 - `vbox-expand`: an append-only vertical stack of items built at
   runtime from `goexml-item` fragments. Takes no children and no
-  items in the document; `scrollable` (present and empty) wraps the
-  stack in a scroll so `h-*` bounds its visible height. A third
-  amendment element — see the amendment block.
+  items in the document; its layout attributes mirror the static
+  `vbox` — `spacing`, `align`, `justify`, and `column="grid"` with
+  `min`/`max` — applied to the appended items, and `scrollable`
+  (present and empty) wraps the stack in a scroll so `h-*` bounds its
+  visible height. A third amendment element — see the amendment block.
 - `border`: uses `top`, `bottom`, `left`, `right`, `center` children;
   each region holds at most one child.
 - `label`: `text`.
@@ -130,8 +135,11 @@ this format into Fyne widgets.
 - `spacing`: the gap between children in `vbox`, `hbox`, and
   `vbox-expand`, e.g. `spacing="4"`. Inner padding is a style concern:
   use the `p-N` utilities (the old `padding` attribute moved there —
-  fourth/see the amendment block).
+  see the fifth amendment block).
 - `align`: `start`, `center`, or `end`.
+- `justify`, `column="grid"`, `min`, `max` work on `vbox` as before
+  and, since the fifth amendment, on `vbox-expand` — where they lay
+  out the appended items.
 - Space filling goes through `style` only — `w-full`, `h-full`, `h-N`.
 
 ## Example with ids and layout

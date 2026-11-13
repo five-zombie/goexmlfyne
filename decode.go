@@ -329,12 +329,36 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		}
 	case "vbox-expand":
 		// Items come from the runtime only: a child here would never
-		// reach the screen and would silently rot.
+		// reach the screen and would silently rot. Layout attributes
+		// mirror the static vbox — spacing, align, justify, and the
+		// grid column block — because an appended item is laid out by
+		// the same engine.
 		if len(n.Children) != 0 {
 			return nodeErr(n, "takes no children: fill it at runtime with Append")
 		}
 		if s, ok := n.Attrs["scrollable"]; ok && s != "" {
 			return nodeErr(n, "scrollable takes no value, got %q", s)
+		}
+		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {
+			return nodeErr(n, "unknown column mode %q, want grid on vbox-expand", mode)
+		}
+		for _, key := range []string{"min", "max"} {
+			if s, ok := n.Attrs[key]; ok {
+				if n.Attr("column") != "grid" {
+					return nodeErr(n, "%s needs column=\"grid\"", key)
+				}
+				v, err := strconv.Atoi(s)
+				if err != nil || v < 1 {
+					return nodeErr(n, "%s must be an integer >= 1, got %q", key, s)
+				}
+			}
+		}
+		if n.Attr("min") != "" && n.Attr("max") != "" {
+			minV, _ := strconv.Atoi(n.Attr("min"))
+			maxV, _ := strconv.Atoi(n.Attr("max"))
+			if minV > maxV {
+				return nodeErr(n, "min %d exceeds max %d", minV, maxV)
+			}
 		}
 	case "vbox", "hbox":
 		if mode, ok := n.Attrs["column"]; ok && mode != "grid" {

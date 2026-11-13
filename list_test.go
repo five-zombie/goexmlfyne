@@ -198,3 +198,79 @@ func TestListNonScrollable(t *testing.T) {
 		t.Fatalf("Append: %v", err)
 	}
 }
+
+// TestListSpacingAlign locks the lifted static-box layout: spacing
+// separates appended items, align positions them on the cross axis,
+// and every freshly appended item picks up its style hint through the
+// listLayout adapter.
+func TestListSpacingAlign(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox-expand id="feed" spacing="8" align="end"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	feed := w.Find("feed").(*List)
+	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><label text="x" style="h-1"/></goexml-item>`))
+	for i := 0; i < 3; i++ {
+		if _, err := feed.Append(frag, nil, nil); err != nil {
+			t.Fatalf("Append %d: %v", i, err)
+		}
+	}
+	// MinSize must see the spacing between the fixed-height items:
+	// three h-1 (4px) rows plus two 8px gaps.
+	if got := feed.box.MinSize().Height; got != 4*3+8*2 {
+		t.Fatalf("MinSize height = %v, want 28", got)
+	}
+	feed.box.Layout.Layout(feed.box.Objects, fyne.NewSize(200, 100))
+	for i, o := range feed.box.Objects {
+		if want := float32(i) * 12; o.Position().Y != want {
+			t.Fatalf("item %d at y=%v, want %v (4px row + 8px gap)", i, o.Position().Y, want)
+		}
+		// align="end": the right edge hugs the parent width, whatever
+		// the text's measured width is.
+		if right := o.Position().X + o.Size().Width; right != 200 {
+			t.Fatalf("item %d right edge = %v, want 200", i, right)
+		}
+	}
+}
+
+// TestListGrid locks the grid column block on an appended stack:
+// items flow into columns and wrap rows, with per-item hints still
+// applied.
+func TestListGrid(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox-expand id="grid" column="grid" min="2" max="2" spacing="4"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	grid := w.Find("grid").(*List)
+	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><label text="x" style="h-1"/></goexml-item>`))
+	for i := 0; i < 3; i++ {
+		if _, err := grid.Append(frag, nil, nil); err != nil {
+			t.Fatalf("Append %d: %v", i, err)
+		}
+	}
+	// Layout at the exact content size: two 4px rows plus one 4px
+	// gap, so the grid's leftover-height sharing stays out of the
+	// math.
+	grid.box.Layout.Layout(grid.box.Objects, fyne.NewSize(200, 12))
+	// Two columns of 98px with a 4px gutter; the third item wraps to
+	// the second row.
+	cellW := float32(98)
+	if got := grid.box.Objects[0].Size().Width; got != cellW {
+		t.Fatalf("cell width = %v, want %v", got, cellW)
+	}
+	if got := grid.box.Objects[1].Position().X; got != cellW+4 {
+		t.Fatalf("column 2 x = %v, want %v", got, cellW+4)
+	}
+	if got := grid.box.Objects[2].Position().Y; got != 8 {
+		t.Fatalf("wrapped row y = %v, want 8 (4px row + 4px gap)", got)
+	}
+	if got := grid.box.Objects[2].Position().X; got != 0 {
+		t.Fatalf("wrapped item x = %v, want 0", got)
+	}
+}

@@ -18,6 +18,41 @@ type List struct {
 	box   *fyne.Container // where items go, in append order
 	tap   map[string]func()
 	items []*Item
+	hints []childHint // one per item, kept in append order
+}
+
+// listLayout adapts a frozen box or grid layout to a growing stack:
+// boxLayout and gridLayout take their per-child hints at construction,
+// but a List learns a new hint only when an item is appended. The
+// adapter re-points the inner layout's hints at the List's live slice
+// on every measure and layout pass, so freshly appended items pick up
+// their style hints (w-full, h-N, wrap) exactly like static children
+// of a vbox. Same package, so the unexported hints fields are
+// reachable.
+type listLayout struct {
+	inner fyne.Layout
+	list  *List
+}
+
+func (l *listLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	l.sync()
+	return l.inner.MinSize(objects)
+}
+
+func (l *listLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	l.sync()
+	l.inner.Layout(objects, size)
+}
+
+// sync re-points the inner layout's hints. Slice assignment keeps the
+// adapter allocation-free: Append grows the List's slice once.
+func (l *listLayout) sync() {
+	switch inner := l.inner.(type) {
+	case *boxLayout:
+		inner.hints = l.list.hints
+	case *gridLayout:
+		inner.hints = l.list.hints
+	}
 }
 
 // Item is one appended list entry: a built goexml-item fragment with
@@ -100,6 +135,7 @@ func (l *List) Append(item *Node, contents map[string]fyne.CanvasObject, resourc
 		},
 	}
 	l.items = append(l.items, it)
+	l.hints = append(l.hints, hintOf(item.Children[0]))
 	l.box.Objects = append(l.box.Objects, obj)
 	l.box.Refresh()
 	return it, nil
@@ -113,6 +149,7 @@ func (l *List) Clear() {
 		it.retired = true
 	}
 	l.items = nil
+	l.hints = nil
 	l.box.Objects = nil
 	l.box.Refresh()
 }
