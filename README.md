@@ -47,6 +47,13 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   returns the `*widget.Table`. Height style utilities (`h-full`,
   `h-N`) are not supported: a table always sizes to its content.
 - `rect color="#rrggbb"`: a color box for lines and divider bands.
+- `image src fit?`: a picture from the build's resource set — `src`
+  names a registered resource (never a file path or URL; an unknown
+  key or undecodable bytes fail the build). `fit` is `contain`
+  (default), `cover` or `fill`. Without size style an image is as
+  large as its pixels; `h-*` and `w-*` size it like any leaf. The
+  visual layer draws behind the pixels (rounded does not clip them).
+  `SetImage(id, key)` swaps the resource at runtime.
 - `cell text="..."` or `<cell>body</cell>`: same exclusive rule as
   `<text>`.
 - `container id`: an injection frame. It holds free design (any
@@ -226,11 +233,11 @@ func main() {
 // errors. The placeholder below is replaced before the window shows.
 win, err := goexml.Build(root, handlers, map[string]fyne.CanvasObject{
     "page": widget.NewLabel(""),
-})
+}, nil) // resources for <image src>; nil when the doc has no images
 
 // A goexml-item fragment joins the window's id space.
 item, err := goexml.ReadItem("page-body.xml")
-body, err := win.BuildItem(item, nil) // contents for fragment containers
+body, err := win.BuildItem(item, nil, nil) // contents, then resources
 
 // Replace the slot content without touching the surrounding design.
 win.Find("page").(*goexml.Container).SetContent(body)

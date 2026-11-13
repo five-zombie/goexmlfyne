@@ -8,6 +8,12 @@ this format into Fyne widgets.
 > borders (`b-`), and rounded corners (`rounded`) drawn behind an
 > element's content. See the *Visual* block in the Style section. The
 > element and attribute lists are unchanged.
+>
+> **Second amendment, 13 November 2026 (still version 0.1.0):** the leaf
+> element **`image`** joins the schema: `src` names a resource the runtime
+> registers (never a file path or URL), `fit` is `contain` (default),
+> `cover` or `fill`. The visual layer applies behind the pixels; rounded
+> corners do not clip them. See the Tags list.
 
 ## Minimal example
 
@@ -65,6 +71,16 @@ this format into Fyne widgets.
   two. `wrap` accepts `word` (default), `break`, or `off`.
 - `rect`: a color box `color="#rrggbb"`, for lines and divider bands so
   padding, margin, and alignment are visible to the eye.
+- `image`: a picture from the runtime's registered resource set.
+  `src` names a resource key (letters, digits, dot, dash, slash,
+  underscore — never a file path or URL, never a template); `fit` is
+  `contain` (default), `cover` or `fill`. The build fails on an
+  unknown key or undecodable bytes — no image ever renders as a
+  silent empty box. Without size style the image is as large as its
+  pixels; the dimension utilities size it like any leaf (`h-*` is
+  allowed, unlike on a table), and the visual layer draws behind the
+  pixels (rounded corners do not clip them). `SetImage(id, key)`
+  swaps the resource at runtime.
 
 ## Attributes on every widget
 
