@@ -16,6 +16,11 @@ this format into Fyne widgets.
 > filled before showing. `fit` is `contain` (default), `cover` or `fill`.
 > The visual layer applies behind the pixels; rounded corners do not clip
 > them. See the Tags list.
+>
+> **Third amendment, 13 November 2026 (still version 0.1.0):** the
+> structure element **`vbox-expand`** joins the schema: an append-only
+> stack whose items are built at runtime from `goexml-item` fragments.
+> The element takes no children. See the Tags list.
 
 ## Minimal example
 
@@ -53,6 +58,11 @@ this format into Fyne widgets.
   apply, and its ids join the document's global id space. An item is
   only legal as a fragment root, never nested anywhere.
 - `vbox`, `hbox`: vertical and horizontal containers.
+- `vbox-expand`: an append-only vertical stack of items built at
+  runtime from `goexml-item` fragments. Takes no children and no
+  items in the document; `scrollable` (present and empty) wraps the
+  stack in a scroll so `h-*` bounds its visible height. A third
+  amendment element — see the amendment block.
 - `border`: uses `top`, `bottom`, `left`, `right`, `center` children;
   each region holds at most one child.
 - `label`: `text`.
