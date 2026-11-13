@@ -201,15 +201,16 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject, re
 	if err := pre(node.Children[0]); err != nil {
 		return nil, err
 	}
-	// Last call wins: SetImage after this build resolves against the
-	// newest resource set.
-	if resources == nil {
-		resources = map[string]fyne.Resource{}
+	// The fragment's resources merge into the window's set: a
+	// fragment may name its own payloads and reuse the document's
+	// keys, and a nil argument contributes nothing — replacing the
+	// set would silently orphan every document image.
+	for k, v := range resources {
+		w.resources[k] = v
 	}
-	w.resources = resources
 	ctx := &buildCtx{
 		tap:          w.tap,
-		resources:    resources,
+		resources:    w.resources,
 		reg:          map[string]fyne.CanvasObject{},
 		nodes:        map[string]*Node{},
 		containers:   map[string]*Container{},

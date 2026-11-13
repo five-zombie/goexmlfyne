@@ -368,6 +368,46 @@ func TestBareFlags(t *testing.T) {
 	}
 }
 
+// TestBuildItemKeepsDocumentResources locks the resource-set merge:
+// a fragment build never orphans the document's images, and a
+// fragment's own payloads join the window's set for later SetImage
+// calls.
+func TestBuildItemKeepsDocumentResources(t *testing.T) {
+	res := map[string]fyne.Resource{"logo": fyne.NewStaticResource("logo.png", listPng())}
+	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		`<vbox id="v"><image id="logo" src="logo"/></vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, nil, nil, res)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	frag, err := DecodeItem([]byte(`<goexml-item version="0.1.0">` +
+		`<vbox id="row"><label id="rowTitle" text="hi"/></vbox></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	// A fragment without its own payloads must not wipe the set.
+	if _, err := w.BuildItem(frag, nil, nil); err != nil {
+		t.Fatalf("BuildItem(nil): %v", err)
+	}
+	if err := w.SetImage("logo", "logo"); err != nil {
+		t.Fatalf("document image died after BuildItem(nil): %v", err)
+	}
+	// A fragment with payloads merges them: the key resolves for the
+	// fragment's image at build time and for the window later.
+	icon := map[string]fyne.Resource{"icon": fyne.NewStaticResource("icon.png", listPng())}
+	frag2, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><image id="other" src="icon" style="h-4"/></goexml-item>`))
+	if _, err := w.BuildItem(frag2, nil, icon); err != nil {
+		t.Fatalf("BuildItem(icon): %v", err)
+	}
+	if err := w.SetImage("logo", "icon"); err != nil {
+		t.Fatalf("fragment key not merged into the window set: %v", err)
+	}
+}
+
 // TestSetImageWrongNode locks the node-kind guard.
 func TestSetImageWrongNode(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
