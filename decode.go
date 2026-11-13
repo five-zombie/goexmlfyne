@@ -412,6 +412,9 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if err := checkPlaceholders(n, n.Attr("text")); err != nil {
 			return err
 		}
+		if err := checkTemplateID(n, n.Attr("text")); err != nil {
+			return err
+		}
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
 		}
@@ -420,6 +423,9 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 			return nodeErr(n, "needs a text attribute")
 		}
 		if err := checkPlaceholders(n, n.Attr("text")); err != nil {
+			return err
+		}
+		if err := checkTemplateID(n, n.Attr("text")); err != nil {
 			return err
 		}
 		if _, ok := n.Attrs["onClick"]; !ok {
@@ -442,8 +448,14 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		if err := checkPlaceholders(n, v); err != nil {
 			return err
 		}
+		if err := checkTemplateID(n, v); err != nil {
+			return err
+		}
 	case "entry":
 		if err := checkPlaceholders(n, n.Attr("text")); err != nil {
+			return err
+		}
+		if err := checkTemplateID(n, n.Attr("text")); err != nil {
 			return err
 		}
 		if len(n.Children) != 0 {
@@ -459,6 +471,9 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 	case "image":
 		if len(n.Children) != 0 {
 			return nodeErr(n, "cannot have children")
+		}
+		if _, hasSrc := n.Attrs["src"]; !hasSrc && n.Attr("id") == "" {
+			return nodeErr(n, "needs an id attribute: a slot image must be addressable")
 		}
 		if src, ok := n.Attrs["src"]; ok {
 			if src == "" {
@@ -491,6 +506,9 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		for _, o := range n.Children {
 			if o.Type != "option" {
 				return nodeErr(o, "is not allowed inside <select>")
+			}
+			if err := checkTemplateID(n, o.Attr("text")); err != nil {
+				return err
 			}
 			if err := checkAttrs(o, ids); err != nil {
 				return err
@@ -640,6 +658,26 @@ func checkAttrs(n *Node, ids map[string]int) error {
 		ids[id] = n.Line
 	} else if idRequired[n.Type] {
 		return nodeErr(n, "needs an id attribute")
+	}
+	return nil
+}
+
+// checkTemplateID enforces the conditional id rule: a {{placeholder}}
+// template only renders through the runtime's format setters, which
+// address widgets by id, so a templated element without id would be a
+// dead token. vals are the node's template-carrying attributes;
+// n.Text joins the check because <text> may hold its body inline.
+func checkTemplateID(n *Node, vals ...string) error {
+	if n.Attr("id") != "" {
+		return nil
+	}
+	for _, v := range vals {
+		if strings.Contains(v, "{{") {
+			return nodeErr(n, "needs an id attribute: a {{placeholder}} template renders through the runtime's setters")
+		}
+	}
+	if strings.Contains(n.Text, "{{") {
+		return nodeErr(n, "needs an id attribute: a {{placeholder}} template renders through the runtime's setters")
 	}
 	return nil
 }

@@ -239,6 +239,37 @@ func TestSetImageSlot(t *testing.T) {
 	}
 }
 
+// TestOptionalID locks the relaxed id contract: possibly-static
+// elements build and render without an id, stay invisible to Find and
+// the setters, and remain in the visual layer like any widget.
+func TestOptionalID(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		`<vbox id="v">` +
+		`<rect color="#333333" style="h-1"/>` +
+		`<label text="static"/>` +
+		`<hbox spacing="4"><label text="inner"/></hbox>` +
+		`</vbox></window></goexml>`
+	root, err := Decode([]byte(doc))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	w, err := Build(root, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if w.Find("v") == nil {
+		t.Fatal("an element with an id must stay registered")
+	}
+	for _, id := range []string{"", "static", "inner"} {
+		if o := w.Find(id); id == "" && o != nil {
+			t.Fatal("empty id lookup returned something")
+		}
+	}
+	if _, err := w.Text("static"); err == nil || !strings.Contains(err.Error(), "no widget with id") {
+		t.Fatalf("error %q does not name the missing registration", err)
+	}
+}
+
 // TestSetImageWrongNode locks the node-kind guard.
 func TestSetImageWrongNode(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +

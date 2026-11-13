@@ -49,13 +49,16 @@ var withCommon = map[string]bool{
 	"text": true, "image": true, "vbox-expand": true,
 }
 
-// idRequired lists the elements that must carry a unique id.
+// idRequired lists the elements that must carry a unique id: the ones
+// Go must reference by name because they cannot be static — a
+// container's slot is filled through the contents map, and a
+// vbox-expand's handle comes from Find. Every other element is
+// addressable when it needs to be: id is optional for possibly-static
+// widgets, and conditionally required by decode (a src-less slot image
+// and any element carrying a {{placeholder}} template).
 var idRequired = map[string]bool{
-	"container": true,
-	"vbox":      true, "hbox": true, "border": true,
-	"label": true, "button": true, "entry": true,
-	"select": true, "table": true, "rect": true,
-	"text": true, "image": true, "vbox-expand": true,
+	"container":   true,
+	"vbox-expand": true,
 }
 
 // regions are the only valid children of a border element.
