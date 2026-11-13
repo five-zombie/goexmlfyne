@@ -24,17 +24,35 @@ func listPng() []byte {
 	return buf.Bytes()
 }
 
-// TestListAppend covers the append contract: the handle comes from
-// Find, items stack with private id spaces, and every broken input is
-// an explicit error.
-func TestListAppend(t *testing.T) {
+// commitOne drafts frag into l, commits it, and fails the test on any
+// error — for fragments with no open slots.
+func commitOne(t *testing.T, l *List, frag *Node) *Item {
+	t.Helper()
+	it, err := l.Draft(frag)
+	if err != nil {
+		t.Fatalf("Draft: %v", err)
+	}
+	if err := l.Commit(it); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+	return it
+}
+
+// TestListDraftCommit covers the draft/commit contract: Draft builds
+// the fragment off-screen with a private id space, the app fills it,
+// Commit stacks a complete row — and every broken input is an
+// explicit error.
+func TestListDraftCommit(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
 		`<vbox-expand id="feed" style="bg-[#112233] rounded-md" scrollable /></window></goexml>`
 	root, err := Decode([]byte(doc))
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
-	w, err := Build(root, map[string]func(){"OnRow": func() {}}, nil, nil)
+	res := map[string]fyne.Resource{
+		"pic": fyne.NewStaticResource("pic.png", listPng()),
+	}
+	w, err := Build(root, map[string]func(){"OnRow": func() {}}, nil, res)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -57,63 +75,44 @@ func TestListAppend(t *testing.T) {
 		t.Fatalf("DecodeItem: %v", err)
 	}
 
-	// Deterministic append errors before anything valid.
+	// Deterministic draft errors before anything valid.
 	badDoc, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x"/></window></goexml>`))
-	res := map[string]fyne.Resource{
-		"pic": fyne.NewStaticResource("pic.png", listPng()),
-	}
 	for _, tc := range []struct {
 		name string
 		node *Node
-		// contents must mention a container the fragment lacks, or
-		// leave one unfilled
-		contents  map[string]fyne.CanvasObject
-		resources map[string]fyne.Resource
-		want      string
+		want string
 	}{
-		{"nil node", nil, nil, nil, "goexml-item"},
-		{"wrong node", badDoc, nil, nil, "goexml-item"},
-		{"unknown slot", frag, map[string]fyne.CanvasObject{"nope": widget.NewLabel("x")}, res, "no container with id"},
-		{"unfilled slot", frag, nil, res, "slot must be filled"},
+		{"nil node", nil, "goexml-item"},
+		{"wrong node", badDoc, "goexml-item"},
 	} {
-		if _, err := feed.Append(tc.node, tc.contents, tc.resources); err == nil ||
-			!strings.Contains(err.Error(), tc.want) {
+		if _, err := feed.Draft(tc.node); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Fatalf("%s: error %q does not contain %q", tc.name, err, tc.want)
 		}
 	}
-	if feed.Count() != 0 {
-		t.Fatalf("failed appends stacked %d objects", feed.Count())
-	}
 
-	// Two appends of the same fragment: private id spaces, distinct
-	// objects, per-item data.
-	first, err := feed.Append(frag, map[string]fyne.CanvasObject{
-		"rowSlot": widget.NewLabel("body 1"),
-	}, res)
+	// Draft the same fragment twice: private id spaces, distinct
+	// objects, per-item data. Nothing reaches the screen yet.
+	first, err := feed.Draft(frag)
 	if err != nil {
-		t.Fatalf("Append 1: %v", err)
+		t.Fatalf("Draft 1: %v", err)
 	}
-	second, err := feed.Append(frag, map[string]fyne.CanvasObject{
-		"rowSlot": widget.NewLabel("body 2"),
-	}, res)
+	second, err := feed.Draft(frag)
 	if err != nil {
-		t.Fatalf("Append 2: %v", err)
+		t.Fatalf("Draft 2: %v", err)
 	}
-	if feed.Count() != 2 {
-		t.Fatalf("Count = %d, want 2", feed.Count())
+	if feed.Count() != 0 {
+		t.Fatalf("drafts reached the screen early: Count = %d", feed.Count())
 	}
 	// Ids are private: the window must not see fragment ids...
 	if w.Find("rowTitle") != nil {
 		t.Fatal("item ids leaked into the window scope")
 	}
-	// ...while the handlers resolve from the window's map (build
-	// succeeded with OnRow) and each item's widgets are distinct.
+	// ...while each draft's widgets are distinct and fillable.
 	t1, _ := first.Find("rowTitle").(*widget.Label)
 	t2, _ := second.Find("rowTitle").(*widget.Label)
 	if t1 == nil || t2 == nil || t1 == t2 {
-		t.Fatal("items share their widgets or miss them")
+		t.Fatal("drafts share their widgets or miss them")
 	}
-	// Item setters work, including templates and images.
 	if err := first.SetTextFormat("rowTitle", map[string]string{"title": "one"}); err != nil {
 		t.Fatalf("SetTextFormat: %v", err)
 	}
@@ -126,36 +125,68 @@ func TestListAppend(t *testing.T) {
 	if v, _ := second.Text("rowTitle"); v != "two" {
 		t.Fatalf("second Text = %q, want two", v)
 	}
+	// The src key resolves from the window's shared resource set.
 	if err := first.SetImage("rowPic", "pic"); err != nil {
 		t.Fatalf("SetImage: %v", err)
 	}
-	if first.UnfilledImages() != nil {
-		t.Fatalf("UnfilledImages after fill = %v, want none", first.UnfilledImages())
+
+	// Commit refuses an unfilled slot: a committed row is complete.
+	if err := feed.Commit(first); err == nil || !strings.Contains(err.Error(), `slot "rowSlot" is not filled`) {
+		t.Fatalf("error %q does not name the empty slot", err)
 	}
-	// Per-item resource sets: an item is built against exactly the set
-	// it is appended with — the same fragment missing a key its
-	// sibling got fails on its own append, never elsewhere.
-	before := feed.Count()
-	_, err = feed.Append(frag, map[string]fyne.CanvasObject{
-		"rowSlot": widget.NewLabel("body 3"),
-	}, nil)
-	if err == nil || !strings.Contains(err.Error(), "unknown image resource") {
-		t.Fatalf("error %q does not name the missing set", err)
+	first.Find("rowSlot").(*Container).SetContent(widget.NewLabel("body 1"))
+	if err := feed.Commit(first); err != nil {
+		t.Fatalf("Commit 1: %v", err)
 	}
-	if feed.Count() != before {
-		t.Fatal("a failed append changed the stack")
+	// The second draft still needs its own slot filled.
+	second.Find("rowSlot").(*Container).SetContent(widget.NewLabel("body 2"))
+	if err := feed.Commit(second); err != nil {
+		t.Fatalf("Commit 2: %v", err)
 	}
-	// Slot images inside an item are auditable on the item.
-	slotFrag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><image id="slot" style="h-4"/></goexml-item>`))
-	withSlot, err := feed.Append(slotFrag, nil, nil)
+	if feed.Count() != 2 {
+		t.Fatalf("Count = %d, want 2", feed.Count())
+	}
+	// Committing again is refused.
+	if err := feed.Commit(second); err == nil || !strings.Contains(err.Error(), "already committed") {
+		t.Fatalf("error %q does not refuse the double commit", err)
+	}
+	// A foreign draft is refused here.
+	otherRoot, _ := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="100x100"><vbox-expand id="other"/></window></goexml>`))
+	otherWin, _ := Build(otherRoot, map[string]func(){"OnRow": func() {}}, nil, res)
+	other := otherWin.Find("other").(*List)
+	stray, err := other.Draft(frag)
 	if err != nil {
-		t.Fatalf("Append slot frag: %v", err)
+		t.Fatalf("Draft on other: %v", err)
+	}
+	if err := feed.Commit(stray); err == nil || !strings.Contains(err.Error(), "another list") {
+		t.Fatalf("error %q does not refuse a foreign draft", err)
+	}
+
+	// Slot images pending at commit time are fine and stay auditable:
+	// they keep their size, unlike an empty container slot.
+	slotFrag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><image id="slot" style="h-4"/></goexml-item>`))
+	withSlot, err := feed.Draft(slotFrag)
+	if err != nil {
+		t.Fatalf("Draft slot frag: %v", err)
 	}
 	if got := withSlot.UnfilledImages(); len(got) != 1 || got[0] != "slot" {
 		t.Fatalf("UnfilledImages = %v, want [slot]", got)
 	}
+	if err := feed.Commit(withSlot); err != nil {
+		t.Fatalf("Commit slot frag: %v", err)
+	}
+	if got := withSlot.UnfilledImages(); len(got) != 1 {
+		t.Fatalf("UnfilledImages after commit = %v, want still pending", got)
+	}
+	if err := withSlot.SetImageRes("slot", fyne.NewStaticResource("s.png", listPng())); err != nil {
+		t.Fatalf("SetImageRes: %v", err)
+	}
+	if withSlot.UnfilledImages() != nil {
+		t.Fatalf("UnfilledImages after fill = %v, want none", withSlot.UnfilledImages())
+	}
 
-	// Clear retires the handles and empties the stack.
+	// Clear retires the committed items and every pending draft.
+	pending, _ := feed.Draft(frag)
 	feed.Clear()
 	if feed.Count() != 0 {
 		t.Fatal("Clear left items")
@@ -170,12 +201,17 @@ func TestListAppend(t *testing.T) {
 	if got := withSlot.UnfilledImages(); got != nil {
 		t.Fatalf("UnfilledImages on a cleared item = %v, want nil", got)
 	}
-	// The list still works after a clear.
-	again, err := feed.Append(frag, map[string]fyne.CanvasObject{
-		"rowSlot": widget.NewLabel("fresh"),
-	}, res)
+	if err := feed.Commit(pending); err == nil || !strings.Contains(err.Error(), "cleared") {
+		t.Fatalf("error %q does not retire the pending draft", err)
+	}
+	// The list still works after a clear: draft, fill, commit.
+	again, err := feed.Draft(frag)
 	if err != nil {
-		t.Fatalf("Append after Clear: %v", err)
+		t.Fatalf("Draft after Clear: %v", err)
+	}
+	again.Find("rowSlot").(*Container).SetContent(widget.NewLabel("fresh"))
+	if err := feed.Commit(again); err != nil {
+		t.Fatalf("Commit after Clear: %v", err)
 	}
 	if err := again.SetText("rowTitle", "new"); err != nil {
 		t.Fatalf("SetText on fresh item: %v", err)
@@ -197,14 +233,12 @@ func TestListNonScrollable(t *testing.T) {
 		t.Fatalf("Find(feed) = %T, want *List", w.Find("feed"))
 	}
 	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><label id="l" text="x"/></goexml-item>`))
-	if _, err := feed.Append(frag, nil, nil); err != nil {
-		t.Fatalf("Append: %v", err)
-	}
+	commitOne(t, feed, frag)
 }
 
 // TestListSpacingAlign locks the lifted static-box layout: spacing
-// separates appended items, align positions them on the cross axis,
-// and every freshly appended item picks up its style hint through the
+// separates committed items, align positions them on the cross axis,
+// and every committed item picks up its style hint through the
 // listLayout adapter.
 func TestListSpacingAlign(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
@@ -217,9 +251,7 @@ func TestListSpacingAlign(t *testing.T) {
 	feed := w.Find("feed").(*List)
 	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><label text="x" style="h-1"/></goexml-item>`))
 	for i := 0; i < 3; i++ {
-		if _, err := feed.Append(frag, nil, nil); err != nil {
-			t.Fatalf("Append %d: %v", i, err)
-		}
+		commitOne(t, feed, frag)
 	}
 	// MinSize must see the spacing between the fixed-height items:
 	// three h-1 (4px) rows plus two 8px gaps.
@@ -239,7 +271,7 @@ func TestListSpacingAlign(t *testing.T) {
 	}
 }
 
-// TestListGrid locks the grid column block on an appended stack:
+// TestListGrid locks the grid column block on a committed stack:
 // items flow into columns and wrap rows, with per-item hints still
 // applied.
 func TestListGrid(t *testing.T) {
@@ -253,9 +285,7 @@ func TestListGrid(t *testing.T) {
 	grid := w.Find("grid").(*List)
 	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><label text="x" style="h-1"/></goexml-item>`))
 	for i := 0; i < 3; i++ {
-		if _, err := grid.Append(frag, nil, nil); err != nil {
-			t.Fatalf("Append %d: %v", i, err)
-		}
+		commitOne(t, grid, frag)
 	}
 	// Layout at the exact content size: two 4px rows plus one 4px
 	// gap, so the grid's leftover-height sharing stays out of the

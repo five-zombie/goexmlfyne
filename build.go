@@ -429,7 +429,7 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		// item. scrollable wraps the box so h-N and h-full bound the
 		// visible height; without them the box simply sizes to its
 		// items.
-		l := &List{tap: ctx.tap}
+		l := &List{tap: ctx.tap, resources: ctx.resources}
 		var inner fyne.Layout
 		if n.Attr("column") == "grid" {
 			inner = newGridLayout(num(n.Attr("spacing")), gridMin(n), gridMax(n), nil)

@@ -99,11 +99,14 @@ func appendFeed(feed *goexml.List) {
 		log.Fatalf("demo: %v", err)
 	}
 	for _, title := range []string{"First row", "Second row", "Third row", "Fourth row"} {
-		row, err := feed.Append(item, nil, nil)
+		row, err := feed.Draft(item)
 		if err != nil {
 			log.Fatalf("demo: %v", err)
 		}
 		if err := row.SetTextFormat("rowTitle", map[string]string{"title": title}); err != nil {
+			log.Fatalf("demo: %v", err)
+		}
+		if err := feed.Commit(row); err != nil {
 			log.Fatalf("demo: %v", err)
 		}
 	}

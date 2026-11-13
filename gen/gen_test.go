@@ -118,12 +118,15 @@ func TestGeneratedBuilds(t *testing.T) {
 			if !ok {
 				t.Fatalf("Find(feed) = %T, want *goexml.List", host.Find("feed"))
 			}
-			row, err := feed.Append(root, nil, nil)
+			row, err := feed.Draft(root)
 			if err != nil {
-				t.Fatalf("Append %s: %v", s.file, err)
+				t.Fatalf("Draft %s: %v", s.file, err)
 			}
 			if err := row.SetTextFormat("rowTitle", map[string]string{"title": "gen"}); err != nil {
 				t.Fatalf("SetTextFormat %s: %v", s.file, err)
+			}
+			if err := feed.Commit(row); err != nil {
+				t.Fatalf("Commit %s: %v", s.file, err)
 			}
 			if feed.Count() != 1 {
 				t.Fatalf("Count = %d, want 1", feed.Count())
