@@ -201,16 +201,22 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject, re
 	if err := pre(node.Children[0]); err != nil {
 		return nil, err
 	}
-	// The fragment's resources merge into the window's set: a
-	// fragment may name its own payloads and reuse the document's
-	// keys, and a nil argument contributes nothing — replacing the
-	// set would silently orphan every document image.
+	// The fragment's resources resolve against a copy of the window's
+	// set extended by the fragment's own payloads: a fragment may name
+	// its own payloads and reuse the document's keys, and a nil
+	// argument contributes nothing. The copy becomes the live set only
+	// after the build succeeds — merging up front would let a failed
+	// BuildItem leave payloads from a fragment that never rendered.
+	set := make(map[string]fyne.Resource, len(w.resources)+len(resources))
+	for k, v := range w.resources {
+		set[k] = v
+	}
 	for k, v := range resources {
-		w.resources[k] = v
+		set[k] = v
 	}
 	ctx := &buildCtx{
 		tap:          w.tap,
-		resources:    w.resources,
+		resources:    set,
 		reg:          map[string]fyne.CanvasObject{},
 		nodes:        map[string]*Node{},
 		containers:   map[string]*Container{},
@@ -225,6 +231,11 @@ func (w *Window) BuildItem(node *Node, contents map[string]fyne.CanvasObject, re
 	obj, err := buildObject(node.Children[0], ctx)
 	if err != nil {
 		return nil, err
+	}
+	// Success: promote the extended set into the window's live map —
+	// in place, because Lists and item scopes share the instance.
+	for k, v := range set {
+		w.resources[k] = v
 	}
 	for id := range contents {
 		if !slicesContain(itemContainers, id) {

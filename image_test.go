@@ -408,6 +408,45 @@ func TestBuildItemKeepsDocumentResources(t *testing.T) {
 	}
 }
 
+// TestBuildItemFailureIsAtomic locks the failure path: a BuildItem
+// that fails after validation leaves no trace — ids and resource
+// payloads alike stay out of the window's state.
+func TestBuildItemFailureIsAtomic(t *testing.T) {
+	res := map[string]fyne.Resource{"logo": fyne.NewStaticResource("logo.png", listPng())}
+	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
+		`<label id="l" text="x"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, nil, nil, res)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	// Decodes fine, fails at build: the handler is missing.
+	evil, err := DecodeItem([]byte(`<goexml-item version="0.1.0">` +
+		`<button id="e" text="x" onClick="Nope"/></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	payload := map[string]fyne.Resource{"leak": fyne.NewStaticResource("leak.png", listPng())}
+	if _, err := w.BuildItem(evil, nil, payload); err == nil {
+		t.Fatal("expected BuildItem to fail on the missing handler")
+	}
+	if _, ok := res["leak"]; ok {
+		t.Fatal("a failed BuildItem leaked its resources into the window set")
+	}
+	if err := w.SetImage("l", "leak"); err == nil {
+		t.Fatal("the leaked key resolved after a failed build")
+	}
+	// The document's own set is untouched.
+	if err := w.SetImage("l", "logo"); err == nil {
+		t.Fatal("SetImage on a label should fail, but the key must still resolve")
+	} else if !strings.Contains(err.Error(), "cannot set an image") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("window set = %d entries, want just the document's one", len(res))
+	}
+}
+
 // TestSetImageWrongNode locks the node-kind guard.
 func TestSetImageWrongNode(t *testing.T) {
 	doc := `<goexml version="0.1.0"><window title="x" size="100x100">` +
