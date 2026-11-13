@@ -2,6 +2,7 @@ package goexml
 
 import (
 	"fmt"
+	"sort"
 
 	"fyne.io/fyne/v2"
 )
@@ -139,10 +140,18 @@ func (l *List) Commit(it *Item) error {
 	case it.committed:
 		return fmt.Errorf("goexml: this item is already committed")
 	}
+	// Unfilled slots are named deterministically: map iteration order
+	// is random, so the ids are sorted and the first one reported -
+	// the same discipline decode uses for unknown attributes.
+	unfilled := make([]string, 0, len(it.containers))
 	for id, c := range it.containers {
 		if len(c.slot.Objects) == 0 || c.slot.Objects[0] == nil {
-			return fmt.Errorf("goexml: slot %q is not filled: set it before Commit", id)
+			unfilled = append(unfilled, id)
 		}
+	}
+	if len(unfilled) > 0 {
+		sort.Strings(unfilled)
+		return fmt.Errorf("goexml: slot %q is not filled: set it before Commit", unfilled[0])
 	}
 	it.committed = true
 	l.items = append(l.items, it)

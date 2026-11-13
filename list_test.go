@@ -332,6 +332,40 @@ func TestListSlotNil(t *testing.T) {
 	}
 }
 
+// TestCommitNamesDeterministicSlot locks the error's determinism:
+// with several unfilled slots the message always names the same one,
+// the way decode names unknown attributes.
+func TestCommitNamesDeterministicSlot(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox-expand id="feed"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	feed := w.Find("feed").(*List)
+	frag, _ := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox>` +
+		`<container id="bb"><slot/></container>` +
+		`<container id="aa"><slot/></container>` +
+		`</vbox></goexml-item>`))
+	it, err := feed.Draft(frag)
+	if err != nil {
+		t.Fatalf("Draft: %v", err)
+	}
+	// Both slots empty: "aa" sorts first, every run.
+	for i := 0; i < 25; i++ {
+		err := feed.Commit(it)
+		if err == nil || !strings.Contains(err.Error(), `slot "aa" is not filled`) {
+			t.Fatalf("run %d: error %q does not deterministically name aa", i, err)
+		}
+	}
+	// Filling "aa" moves the complaint to the next one, still sorted.
+	it.Find("aa").(*Container).SetContent(widget.NewLabel("x"))
+	if err := feed.Commit(it); err == nil || !strings.Contains(err.Error(), `slot "bb" is not filled`) {
+		t.Fatalf("error %q does not name the remaining slot", err)
+	}
+}
+
 // TestListNonScrollable locks the plain box variant: same handle, no
 // scroll wrapper, and the visual layer still applies.
 func TestListNonScrollable(t *testing.T) {
