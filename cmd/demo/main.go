@@ -6,7 +6,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"log"
 	"os"
 
@@ -17,6 +21,29 @@ import (
 
 	"github.com/five-zombie/goexmlfyne"
 )
+
+// demoResources generates the payload for the showcase's <image> in
+// code, so the demo stays a single self-contained binary — a real app
+// would load or embed its assets instead.
+func demoResources() map[string]fyne.Resource {
+	img := image.NewNRGBA(image.Rect(0, 0, 96, 48))
+	for y := 0; y < 48; y++ {
+		for x := 0; x < 96; x++ {
+			if (x/8+y/8)%2 == 0 {
+				img.Set(x, y, color.NRGBA{R: 245, G: 158, B: 11, A: 255})
+			} else {
+				img.Set(x, y, color.NRGBA{R: 30, G: 41, B: 59, A: 255})
+			}
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		log.Fatalf("demo: encode image: %v", err)
+	}
+	return map[string]fyne.Resource{
+		"assets/demo.png": fyne.NewStaticResource("demo.png", buf.Bytes()),
+	}
+}
 
 func main() {
 	file := "showcase.xml"
@@ -46,7 +73,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("demo: %v", err)
 		}
-		w, err := root.ApplyAct(goexml.BuildAct(handlers))
+		w, err := root.ApplyActResources(goexml.BuildAct(handlers), nil, demoResources())
 		if err != nil {
 			log.Fatalf("demo: %v", err)
 		}

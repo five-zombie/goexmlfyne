@@ -38,6 +38,7 @@
           <label id="accentBody" text="Non-uniform border, thick amber top" />
         </vbox>
       </hbox>
+      <image id="demoImage" src="assets/demo.png" fit="contain" style="w-full h-16 bg-[#0f172a] rounded-md" />
     </vbox>
   </window>
 </goexml>

@@ -1,6 +1,10 @@
 package gen
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"reflect"
 	"testing"
@@ -17,6 +21,18 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 	a.Quit()
 	os.Exit(code)
+}
+
+// testImage encodes a tiny valid PNG, so the showcase's <image> has
+// decodable bytes to resolve in tests.
+func testImage() []byte {
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 1))
+	img.Set(0, 0, color.NRGBA{A: 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
 }
 
 // sources maps each generated function to the XML file it came from.
@@ -90,7 +106,15 @@ func TestGeneratedBuilds(t *testing.T) {
 				"page": widget.NewLabel(""),
 			}
 		}
-		w, err := goexml.Build(root, handlers, contents, nil)
+		// The showcase carries an <image>: feed it the resource set
+		// the demo would, so the generated tree builds the same way.
+		resources := map[string]fyne.Resource(nil)
+		if s.file == "../examples/showcase.xml" {
+			resources = map[string]fyne.Resource{
+				"assets/demo.png": fyne.NewStaticResource("demo.png", testImage()),
+			}
+		}
+		w, err := goexml.Build(root, handlers, contents, resources)
 		if err != nil {
 			t.Fatalf("Build %s: %v", s.file, err)
 		}

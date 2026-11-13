@@ -371,7 +371,9 @@ func TestScrollWrapsTallContent(t *testing.T) {
 	w, err := Build(root, map[string]func(){
 		"OnCancel": func() {}, "OnSave": func() {}, "OnPick": func() {},
 		"OnRow": func() {}, "OnDemo": func() {},
-	}, nil, nil)
+	}, nil, map[string]fyne.Resource{
+		"assets/demo.png": fyne.NewStaticResource("demo.png", pngBytes(2, 1, color.NRGBA{A: 255})),
+	})
 	if err != nil {
 		t.Fatalf("Build returned error: %v", err)
 	}
@@ -834,7 +836,15 @@ func TestBuildExampleFiles(t *testing.T) {
 		// document envelope first and falling back to the fragment.
 		root, docErr := Decode(data)
 		if docErr == nil {
-			if _, err := Build(root, handlers, fillContainers(root), nil); err != nil {
+			// showcase.xml carries an <image>: feed it the demo's
+			// resource set so every example builds like in production.
+			res := map[string]fyne.Resource(nil)
+			if strings.Contains(f, "showcase") {
+				res = map[string]fyne.Resource{
+					"assets/demo.png": fyne.NewStaticResource("demo.png", pngBytes(2, 1, color.NRGBA{A: 255})),
+				}
+			}
+			if _, err := Build(root, handlers, fillContainers(root), res); err != nil {
 				t.Fatalf("Build %s returned error: %v", f, err)
 			}
 			continue

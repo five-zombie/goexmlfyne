@@ -332,6 +332,11 @@ func Showcase() *goexml.Node {
 									},
 								},
 							},
+							&goexml.Node{
+								Type:  "image",
+								Line:  41,
+								Attrs: map[string]string{"fit": "contain", "id": "demoImage", "src": "assets/demo.png", "style": "w-full h-16 bg-[#0f172a] rounded-md"},
+							},
 						},
 					},
 				},
