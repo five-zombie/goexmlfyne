@@ -69,14 +69,15 @@ Each page owns one responsibility:
 - `vbox-expand scrollable? spacing? align? justify? column="grid"?`:
   a stack of items drafted at runtime. The XML reserves the place;
   items are built from `goexml-item` fragments via `Find(id)` +
-  `List.Draft`, filled at your own pace (templates, slots via
-  `Container.SetContent`, images via `SetImageRes`), then stacked
-  with `List.Commit`. The fragment's ids are private to each item
-  (the same fragment drafts many times), and `<image src="key">`
+  `List.Draft`, filled at your own pace (templates, slots via the
+  error-returning `Item.SetContent`, images via `SetImageRes`), then
+  stacked with `List.Commit`. The fragment's ids are private to each
+  item (the same fragment drafts many times), and `<image src="key">`
   resolves against the build's resource set. `Commit` refuses an
   unfilled slot — a committed row is complete on screen — while a
   slot image without `src` may stay pending, audited by
-  `UnfilledImages`. `Clear` empties the stack and retires the
+  `UnfilledImages`. `Discard` drops one pending draft;
+  `Clear` empties the stack and retires the
   handles. It lays items out with the same engine as a static `vbox`:
   `spacing` sets the gap between items, `align`/`justify` position
   them, and `column="grid"` + `min`/`max` flow them into columns.
@@ -106,7 +107,8 @@ Each page owns one responsibility:
   (`w-*`, `h-N`, padding, margin); its style decides the area it
   gets, and the injected object stretches to fill that area. `Build`
   requires content for every container id, and `SetContent` on the
-  built `*Container` replaces the slot's content.
+  built `*Container` replaces the slot's content (passing `nil`
+  empties the slot).
 - `goexml-item`: the root of an injectable fragment, requires
   `version="0.1.0"`. It holds **exactly one** child widget (no
   window), the same schema rules apply, and its ids join the

@@ -41,10 +41,14 @@ for _, title := range titles {
 
 - `Draft(item)` builds the fragment into an `*Item` that is not yet on
   the stack. Fill it at your own pace: `SetText`/`SetTextFormat`,
-  `SetValue`, `Find(id)` + `Container.SetContent` for slots,
-  `SetImage`/`SetImageRes` for images.
+  `SetValue`, `SetContent(id, obj)` for slots (the error-returning
+  fill — a typo is a library error, not a nil-dereference; passing
+  `nil` empties the slot), `SetImage`/`SetImageRes` for images.
 - `Commit(item)` stacks it at the end: it becomes visible and
   `Count()` grows by one.
+- `Discard(item)` drops one pending draft: it never joins the stack,
+  only its handle is retired, and the committed rows stay untouched —
+  the escape hatch for a row whose data never arrived.
 - The item's ids are **private to the item** — the same fragment can
   be drafted many times without collision, and the window's `Find`
   never sees a row's ids.
@@ -68,7 +72,7 @@ for _, title := range titles {
 A failed commit appends nothing; the item stays a draft and can be
 completed and committed after the fix.
 
-## Clear and retirement
+## Clear, Discard, and retirement
 
 `Clear()` drops every committed item and retires every draft. Handles
 of cleared items are retired: a setter on one is an explicit error
@@ -76,14 +80,20 @@ of cleared items are retired: a setter on one is an explicit error
 `UnfilledImages` returns nothing — never a silent write into a
 detached widget. The list itself keeps working after a clear.
 
+`Discard(it)` is the single-draft version: it drops one pending draft
+and retires only its handle, leaving committed rows untouched.
+Discarding nil, an already committed item, a retired draft, or a draft
+of another list is an error.
+
 ## Item API
 
 An `*Item` mirrors every window setter, scoped to itself:
 
 `SetText`, `Text`, `SetValue`, `SelectValue`, `SetTextFormat`,
-`SetValueFormat`, `SetImage`, `SetImageRes`, `UnfilledImages`,
-`Find`. The window's setters never reach into an item, and an item's
-setters never reach the window.
+`SetValueFormat`, `SetContent` (the slot fill, with an error return),
+`SetImage`, `SetImageRes`, `UnfilledImages`, `Find`. The window's
+setters never reach into an item, and an item's setters never reach
+the window.
 
 ## Choosing between container and list
 

@@ -29,9 +29,11 @@ a document's id space. The List alternative for repeated rows is in
   (`no container with id "x"`) — a typo on the Go side is an error,
   not a silent nothing.
 - `Find(id)` on a built window returns the `*goexml.Container`;
-  `SetContent(obj)` replaces the slot's content at any time. The
-  holder measures to the content's own minimum size and the content
-  fills the area the parent's layout assigned.
+  `SetContent(obj)` replaces the slot's content at any time, and
+  passing `nil` empties the slot (so a build-time-required slot can
+  never hold a nil object — an empty slot stays a refused hole, not a
+  panic). The holder measures to the content's own minimum size and
+  the content fills the area the parent's layout assigned.
 - A container with `visible="false"` hides its whole wrapper, like
   any widget.
 
@@ -85,8 +87,9 @@ Rebuilding a fragment over the same ids is the page-switch lifecycle:
   not inherit the previous page's template or option table: the stale
   per-id state is dropped.
 - A failed `BuildItem` is atomic: the fragment builds into temporary
-  maps and is merged only after every check passes, so an error leaves
-  no orphan ids behind and a corrected retry just works.
+  maps and is merged only after every check passes — ids **and**
+  resource payloads alike — so an error leaves nothing behind and a
+  corrected retry just works.
 
 ## When to prefer a List
 

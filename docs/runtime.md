@@ -113,7 +113,7 @@ see [codegen.md](codegen.md).
   `goexml-item` fragment into the window's id space — lifecycle and
   rebuild rules in [injection.md](injection.md).
 - `Find("feed").(*goexml.List)` handles a `<vbox-expand>`: Draft,
-  Commit, Clear — see [lists.md](lists.md).
+  Commit, Discard, Clear — see [lists.md](lists.md).
 
 ## Error conventions
 
