@@ -165,7 +165,7 @@ this format into Fyne widgets.
 - `align`: `start`, `center`, or `end`.
 - `justify`, `column="grid"`, `min`, `max` work on `vbox` as before
   and, since the fifth amendment, on `vbox-expand` — where they lay
-  out the appended items.
+  out the committed items.
 - Space filling goes through `style` only — `w-full`, `h-full`, `h-N`.
 
 ## Example with ids and layout
