@@ -241,6 +241,10 @@ func (c Corners) Max() float32 {
 func (c Corners) applyTo(r *canvas.Rectangle) {
 	if c.TL == c.TR && c.TR == c.BR && c.BR == c.BL {
 		r.CornerRadius = c.TL
+		r.TopLeftCornerRadius = 0
+		r.TopRightCornerRadius = 0
+		r.BottomRightCornerRadius = 0
+		r.BottomLeftCornerRadius = 0
 		return
 	}
 	r.CornerRadius = 0
@@ -443,6 +447,16 @@ func (l *visualLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	return objects[len(objects)-1].MinSize()
 }
 
+// maxF clamps a computed length to the non-negative range: when the
+// border is thicker than the element, the inset stroke rect would
+// invert; draw it empty instead of mirroring it.
+func maxF(v float32) float32 {
+	if v < 0 {
+		return 0
+	}
+	return v
+}
+
 func (l *visualLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	w, h := size.Width, size.Height
 	clamp := func(r float32) float32 {
@@ -464,9 +478,14 @@ func (l *visualLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		i++
 	}
 	if l.stroke {
+		// A stroked rectangle draws centered on its path: at the plain
+		// bounds half the thickness would hang outside the element.
+		// Inset by half the width so the stroke's outer edge sits on
+		// the bounds — the same geometry the per-side paths have.
+		s := l.v.BorderW.Top
 		clamped.applyTo(objects[i].(*canvas.Rectangle))
-		objects[i].Move(fyne.NewPos(0, 0))
-		objects[i].Resize(size)
+		objects[i].Move(fyne.NewPos(s/2, s/2))
+		objects[i].Resize(fyne.NewSize(maxF(w-s), maxF(h-s)))
 		i++
 	}
 	if l.edges {

@@ -94,6 +94,69 @@ func TestNewVisualPerSideEdges(t *testing.T) {
 	}
 }
 
+// TestNewVisualStrokeGeometry locks the stroke inset fix: Fyne draws
+// a stroke centered on its path, so at plain bounds half the thickness
+// hangs outside the element. The layout insets the stroke rect by half
+// the width so the stroke's outer edge sits on the bounds — the same
+// geometry the per-side edges have — and a border thicker than the
+// element clamps to an empty rect instead of mirroring.
+func TestNewVisualStrokeGeometry(t *testing.T) {
+	st, err := ParseStyle("b-4 b-[#00ff00] rounded-md")
+	if err != nil {
+		t.Fatalf("ParseStyle: %v", err)
+	}
+	content := canvas.NewRectangle(color.NRGBA{A: 255})
+	w := NewVisual(st.Vis, content)
+	c := w.(*fyne.Container)
+	// No bg: stroke rect first, content last.
+	if len(c.Objects) != 2 {
+		t.Fatalf("layers = %d, want 2 (stroke, content)", len(c.Objects))
+	}
+	stroke := c.Objects[0].(*canvas.Rectangle)
+	w.Resize(fyne.NewSize(100, 60))
+	// Inset by half of the 4 px width; outer edge on the bounds.
+	if stroke.Position() != (fyne.NewPos(2, 2)) {
+		t.Fatalf("stroke pos = %v, want (2,2)", stroke.Position())
+	}
+	if stroke.Size() != (fyne.NewSize(96, 56)) {
+		t.Fatalf("stroke size = %v, want 96x56", stroke.Size())
+	}
+	if stroke.CornerRadius != 8 {
+		t.Fatalf("stroke radius = %v, want 8", stroke.CornerRadius)
+	}
+	if stroke.TopLeftCornerRadius != 0 || stroke.BottomRightCornerRadius != 0 {
+		t.Fatalf("per-corner radius overrides = %v/%v, want zeroed by the uniform path",
+			stroke.TopLeftCornerRadius, stroke.BottomRightCornerRadius)
+	}
+
+	// The per-side path keeps its own geometry: edges hug the bounds.
+	ps, err := ParseStyle("bt-2 bt-[#ff0000]")
+	if err != nil {
+		t.Fatalf("ParseStyle: %v", err)
+	}
+	w2 := NewVisual(ps.Vis, canvas.NewRectangle(color.NRGBA{A: 255}))
+	c2 := w2.(*fyne.Container)
+	w2.Resize(fyne.NewSize(100, 60))
+	top := c2.Objects[0].(*canvas.Rectangle)
+	if top.Position() != (fyne.Position{}) || top.Size() != (fyne.NewSize(100, 2)) {
+		t.Fatalf("top edge = %v @ %v, want 100x2 @ origin", top.Size(), top.Position())
+	}
+
+	// A border thicker than the element clamps to an empty rect
+	// (rounded style takes the stroke path).
+	th, err := ParseStyle("b-8 b-[#00ff00] rounded-md")
+	if err != nil {
+		t.Fatalf("ParseStyle: %v", err)
+	}
+	w3 := NewVisual(th.Vis, canvas.NewRectangle(color.NRGBA{A: 255}))
+	c3 := w3.(*fyne.Container)
+	w3.Resize(fyne.NewSize(6, 6))
+	tiny := c3.Objects[0].(*canvas.Rectangle)
+	if tiny.Size() != (fyne.NewSize(0, 0)) || tiny.Position() != (fyne.NewPos(4, 4)) {
+		t.Fatalf("inverted stroke = %v @ %v, want 0x0 @ (4,4)", tiny.Size(), tiny.Position())
+	}
+}
+
 // TestNewVisualHiddenContent covers the visibility propagation: a
 // hidden content produces a hidden wrapper so parent layouts collapse
 // the slot.
