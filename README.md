@@ -41,8 +41,9 @@ Each page owns one responsibility:
 
 - `window`: one per file; `title`, `size` (e.g. `800x600`), and exactly
   one child — wrap multiple children in a `vbox` yourself.
-- `vbox`, `hbox`: vertical / horizontal containers with `padding`,
-  `spacing`, `align`, and optional `justify`. A `vbox` with
+- `vbox`, `hbox`: vertical / horizontal containers with `spacing`,
+  `align`, and optional `justify` (inner padding comes from the
+  `p-N` style utilities). A `vbox` with
   `column="grid"` becomes a responsive grid clamped by `min`/`max`.
 - `border`: uses `top`, `bottom`, `left`, `right`, `center` children.
 - `label text="..."`: one line, no wrapping, no children.
