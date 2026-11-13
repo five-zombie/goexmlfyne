@@ -331,10 +331,10 @@ func checkWidget(n *Node, parent string, ids map[string]int, inContainer bool) e
 		// Items come from the runtime only: a child here would never
 		// reach the screen and would silently rot. Layout attributes
 		// mirror the static vbox — spacing, align, justify, and the
-		// grid column block — because an appended item is laid out by
+		// grid column block — because a committed item is laid out by
 		// the same engine.
 		if len(n.Children) != 0 {
-			return nodeErr(n, "takes no children: fill it at runtime with Append")
+			return nodeErr(n, "takes no children: fill it at runtime with Draft and Commit")
 		}
 		// The flag means true when bare (patchFlags rewrites it) or
 		// when valued "true"; the older empty form and any other

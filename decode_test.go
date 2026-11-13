@@ -177,7 +177,7 @@ func TestDecodeRejects(t *testing.T) {
 		{"button template without id", `<goexml version="0.1.0"><window title="x" size="1x1"><button text="{{x}}" onClick="P"/></window></goexml>`, "needs an id attribute"},
 		{"select template without id", `<goexml version="0.1.0"><window title="x" size="1x1"><select onChange="P"><option value="v" text="{{a}}"/></select></window></goexml>`, "needs an id attribute"},
 		{"image bad fit", `<goexml version="0.1.0"><window title="x" size="1x1"><image id="i" src="a/b.png" fit="zoom"/></window></goexml>`, "fit must be"},
-		{"vbox-expand children", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f"><label id="l" text="x"/></vbox-expand></window></goexml>`, "takes no children"},
+		{"vbox-expand children", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f"><label id="l" text="x"/></vbox-expand></window></goexml>`, "fill it at runtime with Draft and Commit"},
 		{"vbox-expand scrollable value", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable="false"/></window></goexml>`, "scrollable must be the bare attribute or scrollable=\"true\""},
 		{"vbox-expand empty scrollable", `<goexml version="0.1.0"><window title="x" size="1x1"><vbox-expand id="f" scrollable=""/></window></goexml>`, "scrollable must be the bare attribute or scrollable=\"true\""},
 		{"style unknown", `<goexml version="0.1.0"><window title="x" size="1x1"><label id="l" text="x" style="wide"/></window></goexml>`, "unknown style"},
