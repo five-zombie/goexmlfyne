@@ -419,13 +419,14 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		// and margin must not be accepted-then-dead attributes.
 		return applyState(c, n), nil
 	case "vbox-expand":
-		// An append-only stack: nothing is built from XML children
+		// A stack of drafted items: nothing is built from XML children
 		// (decode rejects them), so the box starts empty and grows
-		// through List.Append. It lays items out with the same engine
+		// through Draft and Commit. It lays items out with the same
+		// engine
 		// as a static vbox — spacing, align, justify, and the grid
 		// column block all apply — through a listLayout adapter that
 		// re-points the inner layout's hints at the List's live slice
-		// on every measure, since hints are only known per appended
+		// on every measure, since hints are only known per committed
 		// item. scrollable wraps the box so h-N and h-full bound the
 		// visible height; without them the box simply sizes to its
 		// items.

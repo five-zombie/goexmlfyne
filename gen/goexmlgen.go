@@ -28,7 +28,7 @@ func FeedItem() *goexml.Node {
 						Type:  "text",
 						Line:  6,
 						Attrs: map[string]string{"id": "rowBody"},
-						Text:  "Appended at runtime from this fragment: the\nlayout lives here, the data comes from the app.",
+						Text:  "Drafted and committed at runtime from this\nfragment: the layout lives here, the data comes from the app.",
 					},
 				},
 			},
