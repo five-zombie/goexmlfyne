@@ -218,6 +218,66 @@ func TestListDraftCommit(t *testing.T) {
 	}
 }
 
+// TestListItemSetters covers the Item wrappers the list tests never
+// touched: select setters (SetValue, SelectValue, SetValueFormat) and
+// the per-item image payload (SetImageRes), all scoped to one item.
+func TestListItemSetters(t *testing.T) {
+	doc := `<goexml version="0.1.0"><window title="x" size="200x400">` +
+		`<vbox-expand id="feed"/></window></goexml>`
+	root, _ := Decode([]byte(doc))
+	w, err := Build(root, map[string]func(){"OnPick": func() {}}, nil, nil)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	feed := w.Find("feed").(*List)
+	frag, err := DecodeItem([]byte(`<goexml-item version="0.1.0"><vbox>` +
+		`<select id="pick" onChange="OnPick">` +
+		`<option value="a" text="A {{x}}"/><option value="b" text="B {{x}}"/>` +
+		`</select>` +
+		`<image id="thumb" style="h-4"/>` +
+		`</vbox></goexml-item>`))
+	if err != nil {
+		t.Fatalf("DecodeItem: %v", err)
+	}
+	it, err := feed.Draft(frag)
+	if err != nil {
+		t.Fatalf("Draft: %v", err)
+	}
+	if err := feed.Commit(it); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	// SetValue picks by option value; SelectValue reads it back.
+	if err := it.SetValue("pick", "b"); err != nil {
+		t.Fatalf("SetValue: %v", err)
+	}
+	if v, ok := it.SelectValue("pick"); !ok || v != "b" {
+		t.Fatalf("SelectValue = %q, %v; want b, true", v, ok)
+	}
+	// SetValueFormat re-renders the option labels and keeps the
+	// selection by value.
+	if err := it.SetValueFormat("pick", map[string]string{"x": "2"}); err != nil {
+		t.Fatalf("SetValueFormat: %v", err)
+	}
+	sel := it.Find("pick").(*widget.Select)
+	if len(sel.Options) != 2 || sel.Options[0] != "A 2" || sel.Options[1] != "B 2" {
+		t.Fatalf("options = %v, want [A 2 B 2]", sel.Options)
+	}
+	if v, _ := it.SelectValue("pick"); v != "b" {
+		t.Fatalf("SelectValue after re-render = %q, want b", v)
+	}
+	// SetImageRes fills the pending slot image directly.
+	if got := it.UnfilledImages(); len(got) != 1 || got[0] != "thumb" {
+		t.Fatalf("UnfilledImages = %v, want [thumb]", got)
+	}
+	if err := it.SetImageRes("thumb", fyne.NewStaticResource("t.png", listPng())); err != nil {
+		t.Fatalf("SetImageRes: %v", err)
+	}
+	if it.UnfilledImages() != nil {
+		t.Fatalf("UnfilledImages after fill = %v, want none", it.UnfilledImages())
+	}
+}
+
 // TestListNonScrollable locks the plain box variant: same handle, no
 // scroll wrapper, and the visual layer still applies.
 func TestListNonScrollable(t *testing.T) {

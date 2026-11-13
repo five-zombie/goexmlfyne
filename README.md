@@ -66,8 +66,10 @@ Write the layout in XML, keep the logic in Go. Implements the `goexml 0.1.0` sta
   its height; without size style the stack sizes to its items. The
   visual layer applies like on every widget.
 - `image src? fit?`: a picture. With `src`, it names a registered
-  resource from the build's resource set (never a file path or URL;
-  an unknown key or undecodable bytes fail the build). Without `src`
+  resource from the build's resource set — a key into the set, so it
+  may look like a path (`assets/demo.png`) but nothing is ever read
+  from disk or network; an unknown key or undecodable bytes fail the
+  build. Without `src`
   it is a runtime-filled slot: the build leaves it empty, and the app
   must fill it before showing — `SetImage(id, key)` resolves a key
   from the resource set, `SetImageRes(id, res)` attaches fetched

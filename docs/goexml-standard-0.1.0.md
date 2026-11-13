@@ -10,11 +10,13 @@ this format into Fyne widgets.
 > element and attribute lists are unchanged.
 >
 > **Second amendment, 13 November 2026 (still version 0.1.0):** the leaf
-> element **`image`** joins the schema: `src` names a resource the runtime
-> registers (never a file path or URL) and is validated at build when
-> present; without `src` the image is a runtime-filled slot that must be
-> filled before showing. `fit` is `contain` (default), `cover` or `fill`.
-> The visual layer applies behind the pixels; rounded corners do not clip
+> element **`image`** joins the schema: `src` names a resource key in
+> the runtime's registered set and is validated at build when present —
+> a key may look like a path (`assets/logo.png`) but nothing is read
+> from disk or network; without `src` the image is a runtime-filled
+> slot that must be filled before showing. `fit` is `contain`
+> (default), `cover` or `fill`. The visual layer applies behind the
+> pixels; rounded corners do not clip
 > them. See the Tags list.
 >
 > **Third amendment, 13 November 2026 (still version 0.1.0):** the
@@ -126,7 +128,9 @@ this format into Fyne widgets.
   padding, margin, and alignment are visible to the eye.
 - `image`: a picture from the runtime's registered resource set.
   `src` optionally names a resource key (letters, digits, dot, dash,
-  slash, underscore — never a file path or URL, never a template);
+  slash, underscore; a key may look like a path — `assets/logo.png` —
+  but nothing is ever read from disk or network, and never a
+  template);
   `fit` is `contain` (default), `cover` or `fill`. With `src`, the
   build fails on an unknown key or undecodable bytes — no image ever
   renders as a silent empty box. Without `src`, the image is a
