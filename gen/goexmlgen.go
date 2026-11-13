@@ -103,7 +103,7 @@ func PageBody() *goexml.Node {
 					&goexml.Node{
 						Type:  "label",
 						Line:  5,
-						Attrs: map[string]string{"id": "greeting", "text": "Halo {{name}}, {{count}} pesan"},
+						Attrs: map[string]string{"id": "greeting", "text": "Hello {{name}}, {{count}} messages"},
 					},
 					&goexml.Node{
 						Type:  "entry",

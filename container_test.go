@@ -203,7 +203,7 @@ func TestWindowSetters(t *testing.T) {
 // {{placeholder}} templates render from the raw XML text.
 func TestWindowTemplates(t *testing.T) {
 	root, err := Decode([]byte(`<goexml version="0.1.0"><window title="x" size="1x1">` +
-		`<vbox id="b"><label id="g" text="Halo {{name}}, {{n}}"/>` +
+		`<vbox id="b"><label id="g" text="Hello {{name}}, {{n}}"/>` +
 		`<select id="s" onChange="P"><option value="1" text="Item {{i}}"/></select></vbox></window></goexml>`))
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
@@ -213,13 +213,13 @@ func TestWindowTemplates(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	// Before rendering, the raw template shows.
-	if got, _ := w.Text("g"); got != "Halo {{name}}, {{n}}" {
+	if got, _ := w.Text("g"); got != "Hello {{name}}, {{n}}" {
 		t.Fatalf("raw template = %q", got)
 	}
 	if err := w.SetTextFormat("g", map[string]string{"name": "Budi", "n": "3"}); err != nil {
 		t.Fatalf("SetTextFormat: %v", err)
 	}
-	if got, _ := w.Text("g"); got != "Halo Budi, 3" {
+	if got, _ := w.Text("g"); got != "Hello Budi, 3" {
 		t.Fatalf("rendered = %q", got)
 	}
 	if err := w.SetTextFormat("g", map[string]string{"name": "Budi"}); err == nil ||

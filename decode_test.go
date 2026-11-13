@@ -427,13 +427,13 @@ func TestDecodeItem(t *testing.T) {
 func TestDecodePlaceholders(t *testing.T) {
 	// Valid tokens pass on label and text v.
 	doc := `<goexml version="0.1.0"><window title="x" size="1x1">` +
-		`<vbox id="b"><label id="g" text="Halo {{name}}, {{n}}"/><text id="t" v="{{body}}"/></vbox></window></goexml>`
+		`<vbox id="b"><label id="g" text="Hello {{name}}, {{n}}"/><text id="t" v="{{body}}"/></vbox></window></goexml>`
 	if _, err := Decode([]byte(doc)); err != nil {
 		t.Fatalf("valid placeholders rejected: %v", err)
 	}
 	for _, tc := range []struct{ name, doc, want string }{
 		{"unclosed", `<goexml version="0.1.0"><window title="x" size="1x1">` +
-			`<label id="g" text="Halo {{name"/></window></goexml>`,
+			`<label id="g" text="Hello {{name"/></window></goexml>`,
 			"unclosed placeholder"},
 		{"bad token chars", `<goexml version="0.1.0"><window title="x" size="1x1">` +
 			`<label id="g" text="{{user name}}"/></window></goexml>`,

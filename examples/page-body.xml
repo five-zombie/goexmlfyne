@@ -2,7 +2,7 @@
      exactly one child; its ids join the page's id space. -->
 <goexml-item version="0.1.0">
   <vbox id="body" style="p-1" spacing="4">
-    <label id="greeting" text="Halo {{name}}, {{count}} pesan" />
+    <label id="greeting" text="Hello {{name}}, {{count}} messages" />
     <entry id="inpGuest" text="" placeholder="Who greets?" style="w-full" />
     <button id="btnGreet" text="Greet" onClick="OnGreet" />
   </vbox>
