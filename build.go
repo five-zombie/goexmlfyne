@@ -24,24 +24,9 @@ type Window struct {
 	Size fyne.Size
 	// Content is the root Fyne object to show.
 	Content fyne.CanvasObject
-	// resources is the resource set the build resolved image src keys
-	// against; SetImage re-resolves against it.
-	resources map[string]fyne.Resource
-	// byID maps widget ids to their built objects.
-	byID map[string]fyne.CanvasObject
-	// nodes maps ids to their XML nodes, so setters can dispatch by
-	// widget kind.
-	nodes map[string]*Node
-	// containers maps container ids to their built handle.
-	containers map[string]*Container
-	// templates maps ids to their raw {{placeholder}} template text.
-	templates map[string]string
-	// selectValues maps a select id to its option text-to-value table,
-	// so SelectValue can return the option value instead of the label.
-	selectValues map[string]map[string]string
-	// optionRaw stores a select's raw option labels when any of them
-	// carries a {{placeholder}} template.
-	optionRaw map[string][]optPair
+	// The widget-facing registry the setters dispatch on, embedded so
+	// every setter stays a Window method.
+	*widgetScope
 	// docIDs are the document's own ids: fragments must not collide
 	// with them, while fragment ids may replace each other across
 	// rebuilds (last one wins).
@@ -75,26 +60,6 @@ type optPair struct{ raw, value string }
 // Find returns the built object for an XML id, or nil when absent.
 func (w *Window) Find(id string) fyne.CanvasObject {
 	return w.byID[id]
-}
-
-// SelectValue returns the option value of the current choice of a
-// select widget. It reports false when id is unknown or not a select.
-// A choice set outside the declared options falls back to its label.
-func (w *Window) SelectValue(id string) (string, bool) {
-	o, ok := w.byID[id]
-	if !ok {
-		return "", false
-	}
-	s, ok := o.(*widget.Select)
-	if !ok {
-		return "", false
-	}
-	if m, ok := w.selectValues[id]; ok {
-		if v, ok := m[s.Selected]; ok {
-			return v, true
-		}
-	}
-	return s.Selected, true
 }
 
 // Build renders a validated goexml root node into a Fyne window.
@@ -157,19 +122,21 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 		)
 	}
 	win := &Window{
-		Title:        w.Attr("title"),
-		Size:         fyne.NewSize(float32(sw), float32(sh)),
-		Content:      content,
-		resources:    resources,
-		byID:         ctx.reg,
-		nodes:        ctx.nodes,
-		containers:   ctx.containers,
-		templates:    ctx.templates,
-		selectValues: ctx.selectValues,
-		optionRaw:    ctx.optionRaw,
-		docIDs:       map[string]bool{},
-		itemIDs:      map[string]bool{},
-		tap:          tap,
+		Title:   w.Attr("title"),
+		Size:    fyne.NewSize(float32(sw), float32(sh)),
+		Content: content,
+		widgetScope: &widgetScope{
+			resources:    resources,
+			byID:         ctx.reg,
+			nodes:        ctx.nodes,
+			containers:   ctx.containers,
+			templates:    ctx.templates,
+			selectValues: ctx.selectValues,
+			optionRaw:    ctx.optionRaw,
+		},
+		docIDs:  map[string]bool{},
+		itemIDs: map[string]bool{},
+		tap:     tap,
 	}
 	var idWalk func(n *Node)
 	idWalk = func(n *Node) {
