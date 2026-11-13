@@ -42,9 +42,9 @@ func hints(w, h []bool, fixed []float32) []childHint {
 }
 
 func TestBoxMinSize(t *testing.T) {
-	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, nil))
+	l := newBoxLayout(true, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, nil))
 	got := l.MinSize([]fyne.CanvasObject{newStub(100, 20), newStub(50, 30)})
-	want := fyne.NewSize(116, 70)
+	want := fyne.NewSize(100, 54)
 	if got != want {
 		t.Fatalf("MinSize = %v, want %v", got, want)
 	}
@@ -52,46 +52,45 @@ func TestBoxMinSize(t *testing.T) {
 
 func TestBoxLayoutExpand(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
-	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{true, true}, []bool{false, true}, nil))
+	l := newBoxLayout(true, 4, "start", "start", hints([]bool{true, true}, []bool{false, true}, nil))
 	size := fyne.NewSize(116, 170)
 	l.Layout([]fyne.CanvasObject{a, b}, size)
-	// Content height is 170-16=154. Children take 20+30+4=54,
-	// so the expanding child grows by 100.
-	if b.size.Height != 130 {
-		t.Fatalf("expanding height = %v, want 130", b.size.Height)
+	// Children take 20+30+4=54, so the expanding child grows by 116.
+	if b.size.Height != 146 {
+		t.Fatalf("expanding height = %v, want 146", b.size.Height)
 	}
-	if b.size.Width != 100 {
-		t.Fatalf("expanding width = %v, want 100", b.size.Width)
+	if b.size.Width != 116 {
+		t.Fatalf("expanding width = %v, want 116 (full cross axis)", b.size.Width)
 	}
-	if a.pos.Y != 8 || b.pos.Y != 32 {
-		t.Fatalf("positions = %v and %v, want Y 8 and 32", a.pos, b.pos)
+	if a.pos.Y != 0 || b.pos.Y != 24 {
+		t.Fatalf("positions = %v and %v, want Y 0 and 24", a.pos, b.pos)
 	}
 }
 
 func TestBoxLayoutFill(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
-	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{true, false}, []bool{false, false}, nil))
+	l := newBoxLayout(true, 4, "start", "start", hints([]bool{true, false}, []bool{false, false}, nil))
 	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(116, 170))
-	if a.size.Width != 100 || a.size.Height != 20 {
-		t.Fatalf("fill child size = %v, want 100x20", a.size)
+	if a.size.Width != 116 || a.size.Height != 20 {
+		t.Fatalf("fill child size = %v, want 116x20 (full cross axis)", a.size)
 	}
-	if b.pos.Y != 32 {
-		t.Fatalf("second child Y = %v, want 32", b.pos.Y)
+	if b.pos.Y != 24 {
+		t.Fatalf("second child Y = %v, want 24", b.pos.Y)
 	}
 }
 
 func TestBoxLayoutFixedH(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
-	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{40}))
-	if got := l.MinSize([]fyne.CanvasObject{a, b}); got != fyne.NewSize(116, 90) {
-		t.Fatalf("MinSize = %v, want 116x90", got)
+	l := newBoxLayout(true, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{40}))
+	if got := l.MinSize([]fyne.CanvasObject{a, b}); got != fyne.NewSize(100, 74) {
+		t.Fatalf("MinSize = %v, want 100x74", got)
 	}
-	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(116, 90))
+	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(116, 74))
 	if a.size.Height != 40 {
 		t.Fatalf("fixed height = %v, want 40", a.size.Height)
 	}
-	if b.pos.Y != 52 {
-		t.Fatalf("second child Y = %v, want 52", b.pos.Y)
+	if b.pos.Y != 44 {
+		t.Fatalf("second child Y = %v, want 44", b.pos.Y)
 	}
 }
 
@@ -99,16 +98,16 @@ func TestBoxLayoutFixedH(t *testing.T) {
 // the rest of the layout keep flowing around it.
 func TestBoxLayoutFixedHZero(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
-	l := newBoxLayout(true, 8, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{0}))
-	if got := l.MinSize([]fyne.CanvasObject{a, b}); got != fyne.NewSize(116, 50) {
-		t.Fatalf("MinSize = %v, want 116x50 (0 + 30 + spacing 4 + padding 16)", got)
+	l := newBoxLayout(true, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, []float32{0}))
+	if got := l.MinSize([]fyne.CanvasObject{a, b}); got != fyne.NewSize(100, 34) {
+		t.Fatalf("MinSize = %v, want 100x34 (0 + 30 + spacing 4)", got)
 	}
 	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(116, 70))
 	if a.size.Height != 0 {
 		t.Fatalf("zero fixed height = %v, want 0", a.size.Height)
 	}
-	if b.pos.Y != 12 {
-		t.Fatalf("second child Y = %v, want 12 (padding 8 + 0 + spacing 4)", b.pos.Y)
+	if b.pos.Y != 4 {
+		t.Fatalf("second child Y = %v, want 4 (0 + spacing 4)", b.pos.Y)
 	}
 }
 
@@ -117,31 +116,31 @@ func TestGridLayoutColumns(t *testing.T) {
 		newStub(100, 20), newStub(100, 20), newStub(100, 20),
 		newStub(100, 20), newStub(100, 20),
 	}
-	l := newGridLayout(8, 4, 2, 4, nil)
-	if got := l.MinSize(objs); got != fyne.NewSize(220, 84) {
-		t.Fatalf("MinSize = %v, want 220x84 (2 columns assumed)", got)
+	l := newGridLayout(4, 2, 4, nil)
+	if got := l.MinSize(objs); got != fyne.NewSize(204, 68) {
+		t.Fatalf("MinSize = %v, want 204x68 (2 columns assumed)", got)
 	}
 	l.Layout(objs, fyne.NewSize(368, 400))
-	cellW := float32(344) / 3
+	cellW := float32(120)
 	for i, o := range objs[:3] {
 		if o.Size().Width != cellW {
 			t.Fatalf("child %d width = %v, want %v", i, o.Size().Width, cellW)
 		}
-		if o.Position().Y != 8 {
-			t.Fatalf("child %d Y = %v, want 8 (first row)", i, o.Position().Y)
+		if o.Position().Y != 0 {
+			t.Fatalf("child %d Y = %v, want 0 (first row)", i, o.Position().Y)
 		}
 	}
 	if objs[3].Position().Y != 202 {
 		t.Fatalf("child 3 Y = %v, want 202 (second row)", objs[3].Position().Y)
 	}
-	if objs[3].Size().Height != 190 || objs[0].Size().Height != 190 {
-		t.Fatalf("row heights = %v and %v, want 190 each", objs[0].Size().Height, objs[3].Size().Height)
+	if objs[3].Size().Height != 198 || objs[0].Size().Height != 198 {
+		t.Fatalf("row heights = %v and %v, want 198 each", objs[0].Size().Height, objs[3].Size().Height)
 	}
 }
 
 func TestBoxLayoutJustify(t *testing.T) {
 	mkib := func() []fyne.CanvasObject { return []fyne.CanvasObject{newStub(100, 20), newStub(50, 30)} }
-	// total = 150 + 4 spacing = 154; container 300 wide, padding 0 → extra 146.
+	// total = 150 + 4 spacing = 154; container 300 wide → extra 146.
 	cases := []struct {
 		mode string
 		x0   float32
@@ -156,7 +155,7 @@ func TestBoxLayoutJustify(t *testing.T) {
 	}
 	for _, c := range cases {
 		objs := mkib()
-		l := newBoxLayout(false, 0, 4, "start", c.mode, hints([]bool{false, false}, []bool{false, false}, nil))
+		l := newBoxLayout(false, 4, "start", c.mode, hints([]bool{false, false}, []bool{false, false}, nil))
 		l.Layout(objs, fyne.NewSize(300, 60))
 		if objs[0].Position().X != c.x0 || objs[1].Position().X != c.x1 {
 			t.Fatalf("justify %s: positions = %v and %v, want %v and %v",
@@ -167,7 +166,7 @@ func TestBoxLayoutJustify(t *testing.T) {
 
 func TestBoxLayoutExpandBeatsJustify(t *testing.T) {
 	objs := []fyne.CanvasObject{newStub(100, 20), newStub(50, 30)}
-	l := newBoxLayout(false, 0, 4, "start", "end", hints([]bool{false, true}, []bool{false, false}, nil))
+	l := newBoxLayout(false, 4, "start", "end", hints([]bool{false, true}, []bool{false, false}, nil))
 	l.Layout(objs, fyne.NewSize(300, 60))
 	if objs[0].Position().X != 0 || objs[1].Position().X != 104 {
 		t.Fatalf("positions = %v and %v, want 0 and 104 (expand eats extra first)",
@@ -178,7 +177,7 @@ func TestBoxLayoutExpandBeatsJustify(t *testing.T) {
 func TestBoxLayoutSkipsHidden(t *testing.T) {
 	a, b := newStub(100, 20), newStub(50, 30)
 	a.Hide()
-	l := newBoxLayout(true, 0, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, nil))
+	l := newBoxLayout(true, 4, "start", "start", hints([]bool{false, false}, []bool{false, false}, nil))
 	l.Layout([]fyne.CanvasObject{a, b}, fyne.NewSize(50, 30))
 	if b.pos.Y != 0 {
 		t.Fatalf("visible child Y = %v, want 0", b.pos.Y)

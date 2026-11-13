@@ -25,9 +25,10 @@ func (holderLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	}
 }
 
-// boxLayout stacks children in one direction with explicit padding,
-// spacing, cross-axis alignment and per-child expansion. It ignores
-// theme padding so goexml documents render the same on every platform.
+// boxLayout stacks children in one direction with spacing,
+// cross-axis alignment and per-child expansion. It ignores theme
+// padding so goexml documents render the same on every platform;
+// inner padding is a style concern (the p-N utilities wrap the box).
 // childHint carries one child's sizing wishes into the layout.
 type childHint struct {
 	wFull    bool    // fill the parent width
@@ -67,7 +68,6 @@ func (l *tableLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 
 type boxLayout struct {
 	vertical bool
-	padding  float32
 	spacing  float32
 	align    string // start, center or end on the cross axis
 	justify  string // start, center, end, space-between, space-around, space-evenly on the main axis
@@ -75,8 +75,8 @@ type boxLayout struct {
 }
 
 // newBoxLayout returns a vertical (vbox) or horizontal (hbox) layout.
-func newBoxLayout(vertical bool, padding, spacing float32, align, justify string, hints []childHint) fyne.Layout {
-	return &boxLayout{vertical: vertical, padding: padding, spacing: spacing, align: align, justify: justify, hints: hints}
+func newBoxLayout(vertical bool, spacing float32, align, justify string, hints []childHint) fyne.Layout {
+	return &boxLayout{vertical: vertical, spacing: spacing, align: align, justify: justify, hints: hints}
 }
 
 // distribute turns leftover main-axis space into a leading offset and a
@@ -147,9 +147,9 @@ func (b *boxLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 		main += b.spacing * float32(len(vis)-1)
 	}
 	if b.vertical {
-		return fyne.NewSize(cross+2*b.padding, main+2*b.padding)
+		return fyne.NewSize(cross, main)
 	}
-	return fyne.NewSize(main+2*b.padding, cross+2*b.padding)
+	return fyne.NewSize(main, cross)
 }
 
 // Layout positions visible children inside size.
@@ -176,11 +176,11 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	total += b.spacing * float32(len(vis)-1)
 	var avail, cross float32
 	if b.vertical {
-		avail = size.Height - 2*b.padding
-		cross = size.Width - 2*b.padding
+		avail = size.Height
+		cross = size.Width
 	} else {
-		avail = size.Width - 2*b.padding
-		cross = size.Height - 2*b.padding
+		avail = size.Width
+		cross = size.Height
 	}
 	// Assign widths first so wrapped text measures against its final
 	// width, then grow wrapped children to their full wrapped height.
@@ -263,7 +263,7 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		leftover = 0
 	}
 	lead, gap := b.distribute(len(vis), leftover)
-	pos := b.padding + lead
+	pos := lead
 	for i, o := range vis {
 		w, h := sizes[i].Width, sizes[i].Height
 		if b.vertical {
@@ -286,22 +286,22 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 			y = pos
 			switch b.align {
 			case "center":
-				x = b.padding + (cross-w)/2
+				x = (cross - w) / 2
 			case "end":
-				x = b.padding + cross - w
+				x = cross - w
 			default:
-				x = b.padding
+				x = 0
 			}
 			pos += h + gap
 		} else {
 			x = pos
 			switch b.align {
 			case "center":
-				y = b.padding + (cross-h)/2
+				y = (cross - h) / 2
 			case "end":
-				y = b.padding + cross - h
+				y = cross - h
 			default:
-				y = b.padding
+				y = 0
 			}
 			pos += w + gap
 		}
@@ -315,7 +315,6 @@ func (b *boxLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 // child allows), clamped to [minCols, maxCols]. Cells share the row
 // width equally; leftover height is shared equally by all rows.
 type gridLayout struct {
-	padding float32
 	spacing float32
 	minCols int
 	maxCols int // <=0 means no upper clamp besides child count
@@ -323,11 +322,11 @@ type gridLayout struct {
 }
 
 // newGridLayout returns a responsive grid layout.
-func newGridLayout(padding, spacing float32, minCols, maxCols int, hints []childHint) fyne.Layout {
+func newGridLayout(spacing float32, minCols, maxCols int, hints []childHint) fyne.Layout {
 	if minCols < 1 {
 		minCols = 1
 	}
-	return &gridLayout{padding: padding, spacing: spacing, minCols: minCols, maxCols: maxCols, hints: hints}
+	return &gridLayout{spacing: spacing, minCols: minCols, maxCols: maxCols, hints: hints}
 }
 
 // columns returns the visible children chunked into rows for the given
@@ -402,7 +401,7 @@ func (g *gridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	}
 	n := len(vis)
 	if n == 0 {
-		return fyne.NewSize(2*g.padding, 2*g.padding)
+		return fyne.NewSize(0, 0)
 	}
 	if cols > n {
 		cols = n
@@ -429,12 +428,12 @@ func (g *gridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	if rows > 1 {
 		total += float32(rows-1) * g.spacing
 	}
-	return fyne.NewSize(wide*float32(cols)+float32(cols-1)*g.spacing+2*g.padding, total+2*g.padding)
+	return fyne.NewSize(wide*float32(cols)+float32(cols-1)*g.spacing, total)
 }
 
 // Layout positions visible children in the responsive grid.
 func (g *gridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	rows, rhints, cellW := g.columns(objects, size.Width-2*g.padding)
+	rows, rhints, cellW := g.columns(objects, size.Width)
 	if len(rows) == 0 {
 		return
 	}
@@ -469,15 +468,15 @@ func (g *gridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	if len(rows) > 1 {
 		total += float32(len(rows)-1) * g.spacing
 	}
-	extra := size.Height - 2*g.padding - total
+	extra := size.Height - total
 	share := float32(0)
 	if extra > 0 {
 		share = extra / float32(len(rows))
 	}
-	y := g.padding
+	var y float32
 	for r, row := range rows {
 		h := rowH[r] + share
-		x := g.padding
+		var x float32
 		for _, o := range row {
 			o.Move(fyne.NewPos(x, y))
 			o.Resize(fyne.NewSize(cellW, h))

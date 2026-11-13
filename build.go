@@ -118,7 +118,7 @@ func Build(root *Node, tap map[string]func(), contents map[string]fyne.CanvasObj
 		content = objs[0]
 	} else {
 		content = container.New(
-			newBoxLayout(true, 0, 4, "start", "start", hints), objs...,
+			newBoxLayout(true, 4, "start", "start", hints), objs...,
 		)
 	}
 	win := &Window{
@@ -432,11 +432,11 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		l := &List{tap: ctx.tap}
 		var inner fyne.Layout
 		if n.Attr("column") == "grid" {
-			inner = newGridLayout(0, num(n.Attr("spacing")), gridMin(n), gridMax(n), nil)
+			inner = newGridLayout(num(n.Attr("spacing")), gridMin(n), gridMax(n), nil)
 		} else if n.Attr("column") != "" {
 			return nil, nodeErr(n, "unknown column mode %q, want grid", n.Attr("column"))
 		} else {
-			inner = newBoxLayout(true, 0, num(n.Attr("spacing")), alignOf(n), justifyOf(n), nil)
+			inner = newBoxLayout(true, num(n.Attr("spacing")), alignOf(n), justifyOf(n), nil)
 		}
 		l.box = container.New(&listLayout{inner: inner, list: l})
 		visible := fyne.CanvasObject(l.box)
@@ -460,14 +460,14 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 		var box fyne.CanvasObject
 		if n.Type == "vbox" && n.Attr("column") == "grid" {
 			box = container.New(
-				newGridLayout(num(n.Attr("padding")), num(n.Attr("spacing")), gridMin(n), gridMax(n), hints),
+				newGridLayout(num(n.Attr("spacing")), gridMin(n), gridMax(n), hints),
 				objs...,
 			)
 		} else if n.Type == "vbox" && n.Attr("column") != "" {
 			return nil, nodeErr(n, "unknown column mode %q, want grid", n.Attr("column"))
 		} else {
 			box = container.New(
-				newBoxLayout(vertical, num(n.Attr("padding")), num(n.Attr("spacing")), alignOf(n), justifyOf(n), hints),
+				newBoxLayout(vertical, num(n.Attr("spacing")), alignOf(n), justifyOf(n), hints),
 				objs...,
 			)
 		}
@@ -494,7 +494,7 @@ func buildWidget(n *Node, ctx *buildCtx) (fyne.CanvasObject, error) {
 				for _, g := range r.Children {
 					hints = append(hints, hintOf(g))
 				}
-				o = container.New(newBoxLayout(true, 0, 4, "start", "start", hints), objs...)
+				o = container.New(newBoxLayout(true, 4, "start", "start", hints), objs...)
 			}
 			switch r.Type {
 			case "top":
