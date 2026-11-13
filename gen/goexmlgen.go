@@ -7,6 +7,35 @@ package gen
 
 import goexml "github.com/five-zombie/goexmlfyne"
 
+// FeedItem returns the node tree of ../examples/feed-item.xml (fragment).
+func FeedItem() *goexml.Node {
+	return &goexml.Node{
+		Type:  "goexml-item",
+		Line:  3,
+		Attrs: map[string]string{"version": "0.1.0"},
+		Children: []*goexml.Node{
+			&goexml.Node{
+				Type:  "vbox",
+				Line:  4,
+				Attrs: map[string]string{"id": "row", "spacing": "2", "style": "bg-[#1e293b] rounded-md p-2"},
+				Children: []*goexml.Node{
+					&goexml.Node{
+						Type:  "label",
+						Line:  5,
+						Attrs: map[string]string{"id": "rowTitle", "text": "{{title}}"},
+					},
+					&goexml.Node{
+						Type:  "text",
+						Line:  6,
+						Attrs: map[string]string{"id": "rowBody"},
+						Text:  "Appended at runtime from this fragment: the\nlayout lives here, the data comes from the app.",
+					},
+				},
+			},
+		},
+	}
+}
+
 // Form returns the node tree of ../examples/form.xml (document).
 func Form() *goexml.Node {
 	return &goexml.Node{
@@ -336,6 +365,11 @@ func Showcase() *goexml.Node {
 								Type:  "image",
 								Line:  41,
 								Attrs: map[string]string{"fit": "contain", "id": "demoImage", "src": "assets/demo.png", "style": "w-full h-16 bg-[#0f172a] rounded-md"},
+							},
+							&goexml.Node{
+								Type:  "vbox-expand",
+								Line:  42,
+								Attrs: map[string]string{"id": "feed", "scrollable": "", "style": "w-full h-24"},
 							},
 						},
 					},

@@ -1,0 +1,9 @@
+<!-- feed-item.xml: one row of the showcase's <vbox-expand> feed.
+     The demo appends several copies; ids stay private to each row. -->
+<goexml-item version="0.1.0">
+  <vbox id="row" spacing="2" style="bg-[#1e293b] rounded-md p-2">
+    <label id="rowTitle" text="{{title}}" />
+    <text id="rowBody">Appended at runtime from this fragment: the
+layout lives here, the data comes from the app.</text>
+  </vbox>
+</goexml-item>

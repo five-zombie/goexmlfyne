@@ -39,6 +39,7 @@
         </vbox>
       </hbox>
       <image id="demoImage" src="assets/demo.png" fit="contain" style="w-full h-16 bg-[#0f172a] rounded-md" />
+      <vbox-expand id="feed" style="w-full h-24" scrollable="" />
     </vbox>
   </window>
 </goexml>

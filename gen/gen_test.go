@@ -44,6 +44,7 @@ var sources = []struct {
 	{Form, "../examples/form.xml"},
 	{Page, "../examples/page.xml"},
 	{PageBody, "../examples/page-body.xml"},
+	{FeedItem, "../examples/feed-item.xml"},
 	{Showcase, "../examples/showcase.xml"},
 	{Widgets, "../examples/widgets.xml"},
 }
@@ -97,6 +98,35 @@ func TestGeneratedBuilds(t *testing.T) {
 			}
 			if _, err := host.BuildItem(root, nil, nil); err != nil {
 				t.Fatalf("BuildItem %s: %v", s.file, err)
+			}
+			continue
+		}
+		if s.file == "../examples/feed-item.xml" {
+			// A fragment appends into a <vbox-expand>, its ids
+			// private to each item.
+			hostRoot, err := goexml.Decode([]byte(
+				`<goexml version="0.1.0"><window title="host" size="1x1">` +
+					`<vbox-expand id="feed"/></window></goexml>`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			host, err := goexml.Build(hostRoot, handlers, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			feed, ok := host.Find("feed").(*goexml.List)
+			if !ok {
+				t.Fatalf("Find(feed) = %T, want *goexml.List", host.Find("feed"))
+			}
+			row, err := feed.Append(root, nil, nil)
+			if err != nil {
+				t.Fatalf("Append %s: %v", s.file, err)
+			}
+			if err := row.SetTextFormat("rowTitle", map[string]string{"title": "gen"}); err != nil {
+				t.Fatalf("SetTextFormat %s: %v", s.file, err)
+			}
+			if feed.Count() != 1 {
+				t.Fatalf("Count = %d, want 1", feed.Count())
 			}
 			continue
 		}

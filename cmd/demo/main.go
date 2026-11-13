@@ -78,6 +78,9 @@ func main() {
 			log.Fatalf("demo: %v", err)
 		}
 		win = w
+		if feed, ok := win.Find("feed").(*goexml.List); ok {
+			appendFeed(feed)
+		}
 	}
 	w := a.NewWindow(win.Title)
 	w.Resize(win.Size)
@@ -85,6 +88,25 @@ func main() {
 	// not fit a real window, so scroll instead of letting Fyne clamp it.
 	w.SetContent(container.NewScroll(win.Content))
 	w.ShowAndRun()
+}
+
+// appendFeed fills the showcase's <vbox-expand> with rows built from
+// the feed-item fragment: layout in XML, titles from Go, one private
+// id space per row.
+func appendFeed(feed *goexml.List) {
+	item, err := goexml.ReadItem("feed-item.xml")
+	if err != nil {
+		log.Fatalf("demo: %v", err)
+	}
+	for _, title := range []string{"First row", "Second row", "Third row", "Fourth row"} {
+		row, err := feed.Append(item, nil, nil)
+		if err != nil {
+			log.Fatalf("demo: %v", err)
+		}
+		if err := row.SetTextFormat("rowTitle", map[string]string{"title": title}); err != nil {
+			log.Fatalf("demo: %v", err)
+		}
+	}
 }
 
 // buildPage renders the container example: the XML shell is built with
